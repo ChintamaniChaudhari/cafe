@@ -1,0 +1,11 @@
+{
+  "categories": [
+    {
+      "id": "uuid",
+      "name": "Cold Beverages",
+      "items": [
+        { "id": "uuid", "name": "Iced Latte", "price": 160.00, "is_available": true, "image_url": "https://..." }
+      ]
+    }
+  ]
+}

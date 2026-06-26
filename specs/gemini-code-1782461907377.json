@@ -1,0 +1,8 @@
+{
+  "status": "success",
+  "data": {
+    "tenant": { "id": "uuid", "name": "SmartCafe Nagpur", "currency": "₹" },
+    "table": { "id": "uuid", "label": "T-04" },
+    "session": { "id": "uuid", "opened_at": "2026-06-26T13:38:00Z" }
+  }
+}

@@ -1,0 +1,6 @@
+[ POST /orders ]
+       │
+       ▼
+  ( RECEIVED ) ───► Staff Taps "Cook" ───► ( PREPARING )
+                                                │
+  ( SERVED ) ◄─── Staff Taps "Delivered" ◄─── ( READY ) ◄─── Staff Taps "Done"

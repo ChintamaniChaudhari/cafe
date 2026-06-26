@@ -1,0 +1,12 @@
+{
+  "event": "ORDER_CREATED",
+  "timestamp": "2026-06-26T13:38:45Z",
+  "data": {
+    "order_id": "uuid",
+    "order_number": 101,
+    "table_label": "T-04",
+    "items": [
+      { "name": "Iced Latte", "quantity": 2, "notes": "Oat milk" }
+    ]
+  }
+}

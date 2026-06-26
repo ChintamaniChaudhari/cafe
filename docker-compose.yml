@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: cafeos_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: cafeos_admin
+      POSTGRES_PASSWORD: cafeos_secure_password
+      POSTGRES_DB: cafeos_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    container_name: cafeos_fastapi
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./backend:/workspace
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+psycopg://cafeos_admin:cafeos_secure_password@db:5432/cafeos_dev
+      - SECRET_KEY=local_development_jwt_secret_key_12345
+    depends_on:
+      - db
+
+volumes:
+  pg_data:

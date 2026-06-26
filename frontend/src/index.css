@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Base Styles ──────────────────────────────────────────── */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+/* ── Scrollbar ────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: theme('colors.dark.800');
+}
+::-webkit-scrollbar-thumb {
+  background: theme('colors.dark.500');
+  border-radius: 3px;
+}
+
+/* ── Glassmorphism Utility ────────────────────────────────── */
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-strong {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* ── Kitchen Display Specific ─────────────────────────────── */
+.kds-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.kds-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(240, 154, 70, 0.15);
+}
+.kds-card:active {
+  transform: scale(0.98);
+}
+
+/* ── Status Badge Animations ──────────────────────────────── */
+.status-received {
+  @apply bg-blue-500/20 text-blue-400 border border-blue-500/30;
+}
+.status-preparing {
+  @apply bg-amber-500/20 text-amber-400 border border-amber-500/30;
+  animation: pulseGlow 2s infinite;
+}
+.status-ready {
+  @apply bg-emerald-500/20 text-emerald-400 border border-emerald-500/30;
+}
+.status-served {
+  @apply bg-gray-500/20 text-gray-400 border border-gray-500/30;
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 5px rgba(245, 158, 11, 0.2); }
+  50% { box-shadow: 0 0 15px rgba(245, 158, 11, 0.4); }
+}
