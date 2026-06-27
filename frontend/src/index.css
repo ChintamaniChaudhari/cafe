@@ -17,63 +17,118 @@ html {
 body {
   min-height: 100dvh;
   overflow-x: hidden;
+  background-color: #030305;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(236, 125, 33, 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.05) 0px, transparent 50%);
 }
 
 /* ── Scrollbar ────────────────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: theme('colors.dark.800');
+  background: #07070a;
 }
 ::-webkit-scrollbar-thumb {
-  background: theme('colors.dark.500');
-  border-radius: 3px;
+  background: #202030;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2b2b3d;
 }
 
 /* ── Glassmorphism Utility ────────────────────────────────── */
 .glass {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 15, 22, 0.55);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .glass-strong {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(7, 7, 10, 0.8);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* ── Kitchen Display Specific ─────────────────────────────── */
-.kds-card {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+.glass-card {
+  background: linear-gradient(135deg, rgba(20, 20, 30, 0.6) 0%, rgba(10, 10, 15, 0.8) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.kds-card:hover {
+
+.glass-card:hover {
+  border-color: rgba(236, 125, 33, 0.2);
+  box-shadow: 0 12px 40px 0 rgba(236, 125, 33, 0.06), 0 8px 32px 0 rgba(0, 0, 0, 0.3);
   transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgba(240, 154, 70, 0.15);
-}
-.kds-card:active {
-  transform: scale(0.98);
 }
 
-/* ── Status Badge Animations ──────────────────────────────── */
+/* ── Ambient Background Glows ──────────────────────────────── */
+.ambient-glow {
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  filter: blur(100px);
+  pointer-events: none;
+  z-index: -10;
+  opacity: 0.15;
+}
+
+/* ── Custom Status Badges ──────────────────────────────────── */
 .status-received {
-  @apply bg-blue-500/20 text-blue-400 border border-blue-500/30;
+  @apply bg-accent-blue/10 text-accent-blue border border-accent-blue/20;
 }
 .status-preparing {
-  @apply bg-amber-500/20 text-amber-400 border border-amber-500/30;
-  animation: pulseGlow 2s infinite;
+  @apply bg-accent-amber/10 text-accent-amber border border-accent-amber/20;
+  animation: pulseGlowAmber 2s infinite ease-in-out;
 }
 .status-ready {
-  @apply bg-emerald-500/20 text-emerald-400 border border-emerald-500/30;
+  @apply bg-accent-emerald/10 text-accent-emerald border border-accent-emerald/20;
+  animation: pulseGlowEmerald 2s infinite ease-in-out;
 }
 .status-served {
-  @apply bg-gray-500/20 text-gray-400 border border-gray-500/30;
+  @apply bg-gray-500/15 text-gray-400 border border-gray-500/25;
 }
 
-@keyframes pulseGlow {
-  0%, 100% { box-shadow: 0 0 5px rgba(245, 158, 11, 0.2); }
-  50% { box-shadow: 0 0 15px rgba(245, 158, 11, 0.4); }
+@keyframes pulseGlowAmber {
+  0%, 100% { box-shadow: 0 0 4px rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.2); }
+  50% { box-shadow: 0 0 12px rgba(245, 158, 11, 0.3); border-color: rgba(245, 158, 11, 0.4); }
+}
+
+@keyframes pulseGlowEmerald {
+  0%, 100% { box-shadow: 0 0 4px rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.2); }
+  50% { box-shadow: 0 0 12px rgba(16, 185, 129, 0.3); border-color: rgba(16, 185, 129, 0.4); }
+}
+
+/* ── Premium Scrollbars for Quick Navigation ────────────────── */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* ── Shimmer / Skeleton Loader Effect ────────────────────── */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03) 25%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.03) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmerAnim 1.5s infinite;
+}
+
+@keyframes shimmerAnim {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
