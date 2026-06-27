@@ -28,5 +28,13 @@ services:
     depends_on:
       - db
 
+  frontend:
+    build: ./frontend
+    container_name: cafeos_react
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
 volumes:
   pg_data:

@@ -11,6 +11,7 @@ from app.models.order import OrderStatus, validate_transition, InvalidTransition
 from app.modules.menu.service import MenuService
 from app.modules.orders.repository import OrderRepository
 from app.modules.orders.schemas import CreateOrderRequest
+from app.modules.orders.utils import build_order_event_payload
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ class OrderService:
         """
         # 1. Snapshot prices and validate items
         items_with_prices = []
-        total = 0.0
+        subtotal = 0.0
 
         for item_req in request.items:
             price = await self.menu_service.get_item_price(item_req.item_id)
@@ -47,7 +48,7 @@ class OrderService:
                 )
 
             line_total = price * item_req.quantity
-            total += line_total
+            subtotal += line_total
 
             items_with_prices.append(
                 {
@@ -61,69 +62,33 @@ class OrderService:
         # 2. Get next order number
         order_number = await self.repo.get_next_order_number(session_id)
 
+        # Calculate tax (5% flat rate for MVP) and final total
+        tax_amount = round(subtotal * 0.05, 2)
+        discount_amount = 0.0
+        total = subtotal + tax_amount - discount_amount
+
         # 3. Create order
         order = await self.repo.create_order(
             session_id=session_id,
             order_number=order_number,
+            subtotal=subtotal,
+            tax_amount=tax_amount,
+            discount_amount=discount_amount,
             total_amount=total,
             items=items_with_prices,
         )
 
-        # 4. Fetch related data for the event payload
-        from app.models.dining_session import DiningSession
-        from app.models.table import DiningTable
-        from sqlalchemy import select
-
-        session_result = await self.db.execute(
-            select(DiningSession).where(DiningSession.id == session_id)
-        )
-        dining_session = session_result.scalar_one_or_none()
-
-        table_label = "Unknown"
-        if dining_session:
-            table_result = await self.db.execute(
-                select(DiningTable).where(DiningTable.id == dining_session.table_id)
-            )
-            table = table_result.scalar_one_or_none()
-            if table:
-                table_label = table.label
-
-        # Build item names for the event
-        item_names = []
-        for item_data in items_with_prices:
-            from app.models.menu import MenuItem
-
-            item_result = await self.db.execute(
-                select(MenuItem).where(MenuItem.id == item_data["item_id"])
-            )
-            menu_item = item_result.scalar_one_or_none()
-            item_names.append(
-                {
-                    "name": menu_item.name if menu_item else "Unknown",
-                    "quantity": item_data["quantity"],
-                    "notes": item_data["notes"],
-                }
-            )
+        # 4. Fetch related data for the event payload using optimized helper
+        payloads = await build_order_event_payload(self.db, [order], EventType.ORDER_CREATED.value)
+        event_data = payloads[0] if payloads else {}
 
         # 5. Publish ORDER_CREATED event
-        event_data = {
-            "event": EventType.ORDER_CREATED.value,
-            "data": {
-                "order_id": str(order.id),
-                "order_number": order.order_number,
-                "table_label": table_label,
-                "status": order.status.value,
-                "total_amount": float(order.total_amount),
-                "items": item_names,
-                "created_at": order.created_at.isoformat(),
-            },
-        }
         await event_bus.publish(EventType.ORDER_CREATED, event_data)
 
         logger.info(
             "Order #%d created for table %s (total: %.2f)",
             order.order_number,
-            table_label,
+            event_data.get("data", {}).get("table_label", "Unknown"),
             total,
         )
 

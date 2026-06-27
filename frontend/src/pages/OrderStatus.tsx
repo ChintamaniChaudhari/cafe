@@ -106,7 +106,7 @@ export default function OrderStatus() {
   )
 
   const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/v1/ws/kitchen`
-  const { connected } = useWebSocket(wsUrl, { onMessage: handleMessage })
+  const { connected, hasLongDisconnect } = useWebSocket(wsUrl, { onMessage: handleMessage })
 
   const currentStatus = order?.status || 'RECEIVED'
   const statusInfo = STATUS_DISPLAY[currentStatus as keyof typeof STATUS_DISPLAY] || STATUS_DISPLAY.RECEIVED
@@ -180,6 +180,16 @@ export default function OrderStatus() {
           </div>
         </div>
       </header>
+
+      {/* Disconnect Banner */}
+      {hasLongDisconnect && (
+        <div className="max-w-lg mx-auto w-full px-4 mt-4 relative z-30">
+          <div className="bg-accent-rose/20 border border-accent-rose/30 text-accent-rose p-3 rounded-xl flex items-center justify-center gap-2 shadow-lg text-sm">
+            <Wifi size={16} className="animate-pulse" />
+            <span className="font-bold">Offline. Retrying connection...</span>
+          </div>
+        </div>
+      )}
 
       {/* Main Track Details */}
       <main className="max-w-lg mx-auto px-4 flex-1 w-full mt-6 flex flex-col justify-center gap-8 z-10">

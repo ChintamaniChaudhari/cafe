@@ -10,10 +10,13 @@ interface UseWebSocketOptions {
 }
 
 export function useWebSocket(url: string, options: UseWebSocketOptions) {
-  const { onMessage, reconnectDelay = 3000 } = options
+  const { onMessage, reconnectDelay = 1000 } = options
   const wsRef = useRef<WebSocket | null>(null)
   const [connected, setConnected] = useState(false)
+  const [hasLongDisconnect, setHasLongDisconnect] = useState(false)
+  const reconnectAttempts = useRef(0)
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const disconnectTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const connect = useCallback(() => {
     try {
@@ -22,6 +25,9 @@ export function useWebSocket(url: string, options: UseWebSocketOptions) {
 
       ws.onopen = () => {
         setConnected(true)
+        setHasLongDisconnect(false)
+        reconnectAttempts.current = 0
+        if (disconnectTimer.current) clearTimeout(disconnectTimer.current)
         console.log('[WS] Connected to', url)
       }
 
@@ -36,8 +42,20 @@ export function useWebSocket(url: string, options: UseWebSocketOptions) {
 
       ws.onclose = () => {
         setConnected(false)
-        console.log('[WS] Disconnected, reconnecting in', reconnectDelay, 'ms')
-        reconnectTimer.current = setTimeout(connect, reconnectDelay)
+        
+        // Start long disconnect timer if not already running
+        if (reconnectAttempts.current === 0) {
+          disconnectTimer.current = setTimeout(() => {
+            setHasLongDisconnect(true)
+          }, 10000) // 10 seconds
+        }
+
+        // Exponential backoff: min(delay * 2^attempts, 30s)
+        const delay = Math.min(reconnectDelay * Math.pow(2, reconnectAttempts.current), 30000)
+        reconnectAttempts.current += 1
+        
+        console.log('[WS] Disconnected, reconnecting in', delay, 'ms')
+        reconnectTimer.current = setTimeout(connect, delay)
       }
 
       ws.onerror = () => {
@@ -45,7 +63,9 @@ export function useWebSocket(url: string, options: UseWebSocketOptions) {
       }
     } catch (e) {
       console.error('[WS] Connection error:', e)
-      reconnectTimer.current = setTimeout(connect, reconnectDelay)
+      const delay = Math.min(reconnectDelay * Math.pow(2, reconnectAttempts.current), 30000)
+      reconnectAttempts.current += 1
+      reconnectTimer.current = setTimeout(connect, delay)
     }
   }, [url, onMessage, reconnectDelay])
 
@@ -53,6 +73,7 @@ export function useWebSocket(url: string, options: UseWebSocketOptions) {
     connect()
     return () => {
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current)
+      if (disconnectTimer.current) clearTimeout(disconnectTimer.current)
       wsRef.current?.close()
     }
   }, [connect])
@@ -63,5 +84,5 @@ export function useWebSocket(url: string, options: UseWebSocketOptions) {
     }
   }, [])
 
-  return { connected, send }
+  return { connected, hasLongDisconnect, send }
 }

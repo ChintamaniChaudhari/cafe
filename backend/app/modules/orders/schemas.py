@@ -44,6 +44,9 @@ class OrderResponse(BaseModel):
     id: str
     order_number: int
     status: str
+    subtotal: float = 0.0
+    tax_amount: float = 0.0
+    discount_amount: float = 0.0
     total_amount: float
     items: list[OrderItemResponse]
     table_label: str

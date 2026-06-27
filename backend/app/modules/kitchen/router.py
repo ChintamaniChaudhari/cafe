@@ -39,65 +39,9 @@ async def kitchen_websocket(
             repo = OrderRepository(db)
             active_orders = await repo.get_active_orders()
 
-            # Build order data for each active order
-            from sqlalchemy import select
-            from app.models.dining_session import DiningSession
-            from app.models.table import DiningTable
-            from app.models.order import OrderItem
-            from app.models.menu import MenuItem
-
-            orders_data = []
-            for order in active_orders:
-                # Get table label
-                session_result = await db.execute(
-                    select(DiningSession).where(DiningSession.id == order.session_id)
-                )
-                dining_session = session_result.scalar_one_or_none()
-                table_label = "Unknown"
-                if dining_session:
-                    table_result = await db.execute(
-                        select(DiningTable).where(
-                            DiningTable.id == dining_session.table_id
-                        )
-                    )
-                    table = table_result.scalar_one_or_none()
-                    if table:
-                        table_label = table.label
-
-                # Get order items with names
-                items_result = await db.execute(
-                    select(OrderItem).where(OrderItem.order_id == order.id)
-                )
-                order_items = items_result.scalars().all()
-
-                item_names = []
-                for oi in order_items:
-                    mi_result = await db.execute(
-                        select(MenuItem).where(MenuItem.id == oi.item_id)
-                    )
-                    menu_item = mi_result.scalar_one_or_none()
-                    item_names.append(
-                        {
-                            "name": menu_item.name if menu_item else "Unknown",
-                            "quantity": oi.quantity,
-                            "notes": oi.item_notes,
-                        }
-                    )
-
-                orders_data.append(
-                    {
-                        "event": "ORDER_CREATED",
-                        "data": {
-                            "order_id": str(order.id),
-                            "order_number": order.order_number,
-                            "table_label": table_label,
-                            "status": order.status.value,
-                            "total_amount": float(order.total_amount),
-                            "items": item_names,
-                            "created_at": order.created_at.isoformat(),
-                        },
-                    }
-                )
+            # Build order data for each active order using optimized helper
+            from app.modules.orders.utils import build_order_event_payload
+            orders_data = await build_order_event_payload(db, active_orders, "ORDER_CREATED")
 
             # Send initial hydration
             if orders_data:

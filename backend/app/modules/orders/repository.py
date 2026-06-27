@@ -28,6 +28,9 @@ class OrderRepository:
         self,
         session_id: uuid.UUID,
         order_number: int,
+        subtotal: float,
+        tax_amount: float,
+        discount_amount: float,
         total_amount: float,
         items: list[dict],
     ) -> Order:
@@ -35,6 +38,9 @@ class OrderRepository:
         order = Order(
             session_id=session_id,
             order_number=order_number,
+            subtotal=subtotal,
+            tax_amount=tax_amount,
+            discount_amount=discount_amount,
             total_amount=total_amount,
         )
         self.db.add(order)

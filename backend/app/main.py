@@ -75,7 +75,11 @@ from app.modules.dining.router import router as dining_router
 from app.modules.menu.router import router as menu_router
 from app.modules.orders.router import router as orders_router
 from app.modules.kitchen.router import router as kitchen_router
+from app.modules.auth.router import router as auth_router
+from app.modules.admin.router import router as admin_router
 
+app.include_router(admin_router, prefix="/api/v1")
+app.include_router(auth_router, prefix="/api/v1")
 app.include_router(dining_router, prefix="/api/v1")
 app.include_router(menu_router, prefix="/api/v1")
 app.include_router(orders_router, prefix="/api/v1")

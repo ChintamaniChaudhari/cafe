@@ -62,6 +62,9 @@ class Order(SQLModel, table=True):
     session_id: uuid.UUID = Field(foreign_key="dining_sessions.id", index=True)
     order_number: int
     status: OrderStatus = Field(default=OrderStatus.RECEIVED)
+    subtotal: Decimal = Field(default=0, max_digits=10, decimal_places=2)
+    tax_amount: Decimal = Field(default=0, max_digits=10, decimal_places=2)
+    discount_amount: Decimal = Field(default=0, max_digits=10, decimal_places=2)
     total_amount: Decimal = Field(max_digits=10, decimal_places=2)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 

@@ -13,14 +13,18 @@ class MenuService:
     def __init__(self, db: AsyncSession) -> None:
         self.repo = MenuRepository(db)
 
-    async def get_full_menu(self, tenant_id: uuid.UUID) -> dict:
+    async def get_full_menu(self, tenant_id: str | None = None) -> dict:
         """
         Build the full menu response with categories and nested items.
 
-        Returns the structure matching the spec:
-        { "categories": [{ "id", "name", "items": [...] }] }
+        If tenant_id is None, resolves to the first available tenant (MVP single-tenant mode).
+        Returns the structure: { "categories": [{ "id", "name", "items": [...] }] }
         """
-        categories = await self.repo.get_categories_by_tenant(tenant_id)
+        tid = await self.repo.resolve_tenant_id(tenant_id)
+        if tid is None:
+            return {"categories": []}
+
+        categories = await self.repo.get_categories_by_tenant(tid)
 
         result = []
         for cat in categories:
@@ -55,3 +59,4 @@ class MenuService:
         if item and item.is_available and not item.is_deleted:
             return float(item.base_price)
         return None
+

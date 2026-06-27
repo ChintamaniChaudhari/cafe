@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.menu import MenuCategory, MenuItem
+from app.models.tenant import Tenant
 
 
 class MenuRepository:
@@ -13,6 +14,19 @@ class MenuRepository:
 
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
+
+    async def resolve_tenant_id(self, tenant_id_str: str | None) -> uuid.UUID | None:
+        """Resolve a tenant ID string to a UUID, or find the first tenant for MVP."""
+        if tenant_id_str:
+            try:
+                return uuid.UUID(tenant_id_str)
+            except ValueError:
+                return None
+        # MVP single-tenant fallback: use the first tenant
+        stmt = select(Tenant).limit(1)
+        result = await self.db.execute(stmt)
+        tenant = result.scalar_one_or_none()
+        return tenant.id if tenant else None
 
     async def get_categories_by_tenant(
         self, tenant_id: uuid.UUID
@@ -44,3 +58,4 @@ class MenuRepository:
         stmt = select(MenuItem).where(MenuItem.id == item_id)
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
+

@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import get_session_id
+from app.core.dependencies import get_current_user
+from app.models.user import User
 from app.modules.orders.schemas import CreateOrderRequest, UpdateOrderStatusRequest
 from app.modules.orders.service import OrderService
 
@@ -49,6 +51,7 @@ async def create_order(
 async def update_order_status(
     order_id: uuid.UUID,
     body: UpdateOrderStatusRequest,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """

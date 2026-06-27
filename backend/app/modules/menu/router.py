@@ -24,22 +24,5 @@ async def get_menu(
     Only available items are included.
     """
     service = MenuService(db)
+    return await service.get_full_menu(tenant_id=tenant_id)
 
-    # MVP: if no tenant_id provided, fetch from first tenant
-    if tenant_id:
-        import uuid
-
-        tid = uuid.UUID(tenant_id)
-    else:
-        # For MVP single-tenant: find the first tenant
-        from sqlalchemy import select
-
-        from app.models.tenant import Tenant
-
-        result = await db.execute(select(Tenant).limit(1))
-        tenant = result.scalar_one_or_none()
-        if not tenant:
-            return {"categories": []}
-        tid = tenant.id
-
-    return await service.get_full_menu(tid)

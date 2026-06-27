@@ -5,6 +5,9 @@ import MenuPage from './pages/MenuPage'
 import CartPage from './pages/CartPage'
 import OrderStatus from './pages/OrderStatus'
 import KitchenDisplay from './pages/KitchenDisplay'
+import AdminLogin from './pages/AdminLogin'
+import AdminDashboard from './pages/AdminDashboard'
+import NotFoundPage from './pages/NotFoundPage'
 
 function AnimatedApp() {
   const location = useLocation()
@@ -17,6 +20,8 @@ function AnimatedApp() {
         <Route path="/cart" element={<CartPage />} />
         <Route path="/order/:orderId" element={<OrderStatus />} />
         <Route path="/kitchen" element={<KitchenDisplay />} />
+        <Route path="/admin/login" element={<AdminLogin />} />
+        <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="/" element={
           <div className="flex items-center justify-center min-h-screen relative overflow-hidden">
             {/* Ambient Background Lights */}
@@ -36,6 +41,7 @@ function AnimatedApp() {
             </div>
           </div>
         } />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </AnimatePresence>
   )

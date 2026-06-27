@@ -1,16 +1,24 @@
-"""Auth router — staff JWT login (skeleton for Phase 1)."""
+"""Auth router — staff JWT login."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_db
+from app.modules.auth.schemas import LoginRequest, TokenResponse
+from app.modules.auth.service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/login")
-async def login() -> dict:
+@router.post("/login", response_model=TokenResponse)
+async def login(
+    request: LoginRequest,
+    db: AsyncSession = Depends(get_db)
+) -> TokenResponse:
     """
     POST /api/v1/auth/login
 
-    Staff login endpoint. Returns a JWT token.
-    Skeleton — full implementation comes after Phase 1 Gatekeeper demo.
+    Staff login endpoint. Validates email/password and returns a JWT token.
     """
-    return {"detail": "Auth login not yet implemented. Phase 1 focuses on the ordering pipeline."}
+    service = AuthService(db)
+    return await service.authenticate_user(request)

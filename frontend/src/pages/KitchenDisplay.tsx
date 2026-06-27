@@ -9,7 +9,8 @@ import {
   Play, 
   Coffee,
   Radio,
-  AlertTriangle
+  AlertTriangle,
+  Wifi
 } from 'lucide-react'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { updateOrderStatus } from '../api/client'
@@ -127,7 +128,7 @@ export default function KitchenDisplay() {
   )
 
   const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/v1/ws/kitchen`
-  const { connected } = useWebSocket(wsUrl, { onMessage: handleMessage })
+  const { connected, hasLongDisconnect } = useWebSocket(wsUrl, { onMessage: handleMessage })
 
   const handleTap = async (order: OrderCard) => {
     const next = NEXT_STATUS[order.status]
@@ -148,10 +149,10 @@ export default function KitchenDisplay() {
   const ready = [...orders.values()].filter((o) => o.status === 'READY')
 
   return (
-    <div className="min-h-screen bg-dark-950 text-white flex flex-col font-sans select-none overflow-x-hidden">
+    <div className="min-h-screen bg-dark-950 text-white flex flex-col font-sans select-none overflow-x-hidden p-6">
       
       {/* KDS Control Header */}
-      <header className="glass-strong px-6 py-4 flex items-center justify-between z-10">
+      <header className="glass-strong px-6 py-4 flex items-center justify-between z-10 mb-6 rounded-2xl">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-brand-500 to-brand-600 flex items-center justify-center text-white border border-brand-400/20 shadow-lg shadow-brand-500/10">
             <ChefHat size={22} className="animate-pulse" />
@@ -193,8 +194,15 @@ export default function KitchenDisplay() {
         </div>
       </header>
 
+      {hasLongDisconnect && (
+        <div className="bg-accent-rose/20 border border-accent-rose/30 text-accent-rose p-4 rounded-xl mb-6 flex items-center justify-center gap-3 shadow-lg">
+          <Wifi size={20} className="animate-pulse" />
+          <span className="font-bold">Connection lost. Attempting to reconnect... Please check your internet connection.</span>
+        </div>
+      )}
+
       {/* Grid columns container */}
-      <main className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 p-6 max-w-7xl mx-auto w-full overflow-hidden">
+      <main className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-7xl mx-auto w-full overflow-hidden">
         
         {/* RECEIVED Column */}
         <section className="flex flex-col h-full min-h-[400px]">
