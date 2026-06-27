@@ -61,9 +61,10 @@ export default function CartPage() {
 
     try {
       const items = cart.map((i) => ({
-        item_id: i.item_id,
+        item_id: i.item?.id || i.item_id, // ensure fallback since earlier code used item_id directly
         quantity: i.quantity,
         notes: i.notes,
+        selected_modifiers: i.selected_modifiers,
       }))
 
       const result = await placeOrder(items)
@@ -137,7 +138,7 @@ export default function CartPage() {
               <div className="space-y-3">
                 {cart.map((item) => (
                   <motion.div 
-                    key={item.item_id} 
+                    key={item.cart_id || item.item_id} 
                     layout
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -163,16 +164,21 @@ export default function CartPage() {
                       
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-1">
-                          <h3 className="font-extrabold text-white text-sm truncate">{item.name}</h3>
+                          <h3 className="font-extrabold text-white text-sm truncate">{item.item?.name || item.name}</h3>
                           <button
-                            onClick={() => handleRemove(item.item_id)}
+                            onClick={() => handleRemove((item.cart_id || item.item_id) as string)}
                             className="text-gray-500 hover:text-accent-rose transition-colors p-1"
                           >
                             <Trash2 size={16} />
                           </button>
                         </div>
+                        {item.selected_modifiers && item.selected_modifiers.length > 0 && (
+                          <div className="text-xs text-gray-400 mt-1">
+                            {item.selected_modifiers.map(m => `+ ${m.name}`).join(', ')}
+                          </div>
+                        )}
                         <p className="text-brand-400 font-black text-sm mt-1">
-                          {currency}{item.price.toFixed(2)}
+                          {currency}{((item.item?.price || item.price) + (item.selected_modifiers?.reduce((a, b) => a + b.price, 0) || 0)).toFixed(2)}
                         </p>
                       </div>
                     </div>
@@ -184,7 +190,7 @@ export default function CartPage() {
                         <span className="text-xs text-gray-400 font-bold uppercase tracking-wider">Quantity</span>
                         <div className="flex items-center bg-dark-800 rounded-xl p-0.5 border border-white/5">
                           <button
-                            onClick={() => handleQuantity(item.item_id, item.quantity - 1)}
+                            onClick={() => handleQuantity((item.cart_id || item.item_id) as string, item.quantity - 1)}
                             className="w-8 h-8 flex items-center justify-center text-white hover:bg-dark-700 rounded-lg disabled:opacity-40 transition-colors"
                             disabled={item.quantity <= 1}
                           >
@@ -194,7 +200,7 @@ export default function CartPage() {
                             {item.quantity}
                           </span>
                           <button
-                            onClick={() => handleQuantity(item.item_id, item.quantity + 1)}
+                            onClick={() => handleQuantity((item.cart_id || item.item_id) as string, item.quantity + 1)}
                             className="w-8 h-8 flex items-center justify-center text-white hover:bg-dark-700 rounded-lg transition-colors"
                           >
                             <Plus size={14} strokeWidth={2.5} />
@@ -208,7 +214,7 @@ export default function CartPage() {
                         <textarea
                           placeholder="Special request? (e.g. Extra spicy, no onions...)"
                           value={item.notes || ''}
-                          onChange={(e) => handleNotesChange(item.item_id, e.target.value)}
+                          onChange={(e) => handleNotesChange((item.cart_id || item.item_id) as string, e.target.value)}
                           rows={1}
                           className="w-full bg-transparent outline-none resize-none text-xs text-gray-300 placeholder-gray-500 border-none p-0 focus:ring-0 leading-normal"
                         />

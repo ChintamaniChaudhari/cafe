@@ -17,11 +17,13 @@ from app.models.order import (
 from app.models.table import DiningTable
 from app.models.tenant import Tenant
 from app.models.user import User, UserRole
+from app.models.feedback import Feedback
 
 __all__ = [
     "AuditLog",
     "DiningSession",
     "DiningTable",
+    "Feedback",
     "InvalidTransitionError",
     "MenuCategory",
     "MenuItem",

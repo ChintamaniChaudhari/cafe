@@ -28,7 +28,13 @@ export default function AdminLogin() {
 
       const data = await response.json();
       localStorage.setItem('admin_token', data.access_token);
-      navigate('/admin/dashboard');
+      localStorage.setItem('user_role', data.user.role);
+      
+      if (data.user.role === 'KITCHEN') {
+        navigate('/kitchen');
+      } else {
+        navigate('/admin/dashboard');
+      }
     } catch (err) {
       setError('Login failed. Please check your credentials.');
     } finally {

@@ -20,10 +20,11 @@ export interface SessionData {
 export interface MenuItemData {
   id: string
   name: string
-  description: string | null
+  description: string
   price: number
   is_available: boolean
   image_url: string | null
+  modifiers?: { name: string, price: number }[]
 }
 
 export interface CategoryData {
@@ -34,6 +35,14 @@ export interface CategoryData {
 
 export interface MenuData {
   categories: CategoryData[]
+}
+
+export interface CartItem {
+  cart_id: string
+  item: MenuItemData
+  quantity: number
+  notes?: string
+  selected_modifiers?: { name: string, price: number }[]
 }
 
 export interface OrderItemRequest {
@@ -61,6 +70,7 @@ export interface AdminAnalytics {
   total_orders: number
   active_orders: number
   popular_items: { name: string; sold: number }[]
+  daily_revenue?: { date: string; revenue: number }[]
 }
 
 export interface AdminOrderHistory {
@@ -69,10 +79,47 @@ export interface AdminOrderHistory {
   status: string
   total_amount: number
   created_at: string
-  items: { name: string; quantity: number; unit_price: number }[]
+  items: {
+    id: string
+    item_id: string
+    name: string
+    quantity: number
+    unit_price: number
+    item_notes?: string
+    selected_modifiers?: { name: string, price: number }[]
+  }[]
 }
 
 // ── API Functions ────────────────────────────────────────────
+
+export async function apiFetch(endpoint: string, options: RequestInit = {}) {
+  const token = localStorage.getItem('admin_token')
+  const headers = new Headers(options.headers || {})
+  
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`)
+  }
+  
+  if (!headers.has('Content-Type') && options.body && typeof options.body === 'string') {
+    headers.set('Content-Type', 'application/json')
+  }
+
+  const res = await fetch(`${BASE.replace('/api/v1', '')}${endpoint}`, {
+    ...options,
+    headers,
+    credentials: 'include' // Important for cookie-based session endpoints
+  })
+  
+  if (!res.ok) {
+    if (res.status === 401) {
+       localStorage.removeItem('admin_token')
+       localStorage.removeItem('user_role')
+       window.location.href = '/admin/login'
+    }
+    throw new Error(`API error: ${res.status}`)
+  }
+  return res.json()
+}
 
 export async function scanQR(shortcode: string): Promise<SessionData> {
   const res = await fetch(`${BASE}/s/${shortcode}`, { credentials: 'include' })
@@ -86,12 +133,12 @@ export async function fetchMenu(): Promise<MenuData> {
   return res.json()
 }
 
-export async function placeOrder(items: OrderItemRequest[]): Promise<OrderEventData> {
+export async function placeOrder(items: { item_id: string, quantity: number, notes?: string, selected_modifiers?: { name: string, price: number }[] }[]) {
   const res = await fetch(`${BASE}/orders`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify({ items }),
+    body: JSON.stringify({ items })
   })
   if (!res.ok) throw new Error(`Order failed: ${res.status}`)
   return res.json()
@@ -136,6 +183,16 @@ export async function editMenuItem(itemId: string, data: { name?: string; descri
   return res.json()
 }
 
+export async function deleteMenuItem(itemId: string) {
+  const token = localStorage.getItem('admin_token')
+  const res = await fetch(`${BASE}/admin/items/${itemId}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${token}` }
+  })
+  if (!res.ok) throw new Error(`Failed to delete menu item: ${res.status}`)
+  return res.json()
+}
+
 export async function fetchAnalytics(): Promise<{ data: AdminAnalytics }> {
   const token = localStorage.getItem('admin_token')
   const res = await fetch(`${BASE}/admin/analytics`, {
@@ -145,9 +202,81 @@ export async function fetchAnalytics(): Promise<{ data: AdminAnalytics }> {
   return res.json()
 }
 
-export async function fetchAdminOrders(): Promise<{ data: AdminOrderHistory[] }> {
+export interface AdminSession {
+  id: string
+  status: 'ACTIVE' | 'PAYMENT_PENDING' | 'CLOSED'
+  opened_at: string
+  total_bill: number
+}
+
+export async function fetchAdminSessions(): Promise<{ data: AdminSession[] }> {
   const token = localStorage.getItem('admin_token')
-  const res = await fetch(`${BASE}/admin/orders`, {
+  const res = await fetch(`${BASE}/admin/sessions`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  })
+  if (!res.ok) throw new Error(`Failed to fetch sessions: ${res.status}`)
+  return res.json()
+}
+
+export async function closeSession(sessionId: string) {
+  const token = localStorage.getItem('admin_token')
+  const res = await fetch(`${BASE}/admin/sessions/${sessionId}/close`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}` }
+  })
+  if (!res.ok) throw new Error(`Failed to close session: ${res.status}`)
+  return res.json()
+}
+
+export interface DiningTable {
+  id: string
+  label: string
+  qr_shortcode: string
+  is_occupied: boolean
+}
+
+export async function fetchTables(): Promise<{ data: DiningTable[] }> {
+  const token = localStorage.getItem('admin_token')
+  const res = await fetch(`${BASE}/admin/tables`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  })
+  if (!res.ok) throw new Error(`Failed to fetch tables: ${res.status}`)
+  return res.json()
+}
+
+export async function createTable(label: string): Promise<{ data: DiningTable }> {
+  const token = localStorage.getItem('admin_token')
+  const res = await fetch(`${BASE}/admin/tables`, {
+    method: 'POST',
+    headers: { 
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}` 
+    },
+    body: JSON.stringify({ label })
+  })
+  if (!res.ok) throw new Error(`Failed to create table: ${res.status}`)
+  return res.json()
+}
+
+export async function deleteTable(id: string) {
+  const token = localStorage.getItem('admin_token')
+  const res = await fetch(`${BASE}/admin/tables/${id}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${token}` }
+  })
+  if (!res.ok) throw new Error(`Failed to delete table: ${res.status}`)
+  return res.json()
+}
+
+export async function requestCheckout() {
+  const res = await fetch(`${BASE}/s/checkout`, { method: 'POST', credentials: 'include' })
+  if (!res.ok) throw new Error(`Failed to request checkout: ${res.status}`)
+  return res.json()
+}
+
+export async function fetchAdminOrders(skip = 0, limit = 50): Promise<{ data: AdminOrderHistory[], total: number }> {
+  const token = localStorage.getItem('admin_token')
+  const res = await fetch(`${BASE}/admin/orders?skip=${skip}&limit=${limit}`, {
     headers: { 'Authorization': `Bearer ${token}` }
   })
   if (!res.ok) throw new Error(`Failed to fetch orders: ${res.status}`)

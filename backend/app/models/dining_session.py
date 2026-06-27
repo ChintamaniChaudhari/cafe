@@ -11,6 +11,7 @@ class SessionStatus(str, enum.Enum):
     """Dining session lifecycle states."""
 
     ACTIVE = "ACTIVE"
+    PAYMENT_PENDING = "PAYMENT_PENDING"
     CLOSED = "CLOSED"
 
 

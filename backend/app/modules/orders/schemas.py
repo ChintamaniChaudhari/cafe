@@ -12,6 +12,7 @@ class OrderItemRequest(BaseModel):
     item_id: uuid.UUID
     quantity: int = Field(ge=1)
     notes: str | None = None
+    selected_modifiers: list[dict] | None = None
 
 
 class CreateOrderRequest(BaseModel):
@@ -23,7 +24,7 @@ class CreateOrderRequest(BaseModel):
 class UpdateOrderStatusRequest(BaseModel):
     """Request body for PATCH /api/v1/orders/{id}/status."""
 
-    status: str = Field(description="Target status: PREPARING, READY, or SERVED")
+    status: str = Field(description="Target status: PREPARING, READY, SERVED, or CANCELED")
 
 
 # ── Response Schemas ──────────────────────────────────────────
@@ -36,6 +37,7 @@ class OrderItemResponse(BaseModel):
     quantity: int
     unit_price: float
     item_notes: str | None = None
+    selected_modifiers: list[dict] | None = None
 
 
 class OrderResponse(BaseModel):

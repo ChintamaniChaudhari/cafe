@@ -53,6 +53,7 @@ class OrderRepository:
                 quantity=item_data["quantity"],
                 unit_price=item_data["unit_price"],
                 item_notes=item_data.get("notes"),
+                selected_modifiers=item_data.get("selected_modifiers", []),
             )
             self.db.add(order_item)
 

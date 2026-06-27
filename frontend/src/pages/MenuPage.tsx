@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { fetchMenu, type CategoryData, type MenuItemData } from '../api/client'
 import { addToCart, getCart, updateQuantity, removeFromCart, type CartItem } from '../store/cart'
+import ItemModifierModal from '../components/ItemModifierModal'
 
 export default function MenuPage() {
   const navigate = useNavigate()
@@ -24,6 +25,8 @@ export default function MenuPage() {
   const [filterVeg, setFilterVeg] = useState(false)
   const [activeCategory, setActiveCategory] = useState<string>('')
   const [addedItemId, setAddedItemId] = useState<string | null>(null)
+  
+  const [selectedModifierItem, setSelectedModifierItem] = useState<MenuItemData | null>(null)
   
   const categoryRefs = useRef<Record<string, HTMLElement | null>>({})
 
@@ -53,16 +56,30 @@ export default function MenuPage() {
   }
 
   const handleAddOne = (item: MenuItemData) => {
+    if (item.modifiers && item.modifiers.length > 0) {
+      setSelectedModifierItem(item)
+      return
+    }
+
     const cartItem: CartItem = {
+      cart_id: crypto.randomUUID(),
       item_id: item.id,
       name: item.name,
       price: item.price,
-      quantity: 1,
       image_url: item.image_url,
+      item,
+      quantity: 1
     }
     const updated = addToCart(cartItem)
     setCart([...updated])
     setAddedItemId(item.id)
+    setTimeout(() => setAddedItemId(null), 600)
+  }
+
+  const handleModalAddToCart = (cartItem: CartItem) => {
+    const updated = addToCart(cartItem)
+    setCart([...updated])
+    setAddedItemId(cartItem.item.id)
     setTimeout(() => setAddedItemId(null), 600)
   }
 
@@ -134,7 +151,7 @@ export default function MenuPage() {
   }).filter(cat => cat.items.length > 0)
 
   const cartTotalCount = cart.reduce((s, i) => s + i.quantity, 0)
-  const cartTotalPrice = cart.reduce((s, i) => s + i.price * i.quantity, 0)
+  const cartTotalPrice = cart.reduce((s, i) => s + (i.price || 0) * i.quantity, 0)
 
   if (loading) {
     return (
@@ -353,23 +370,29 @@ export default function MenuPage() {
                           {/* Buy Button & Quantity Controls */}
                           <div className="shrink-0">
                             {cartQty > 0 ? (
-                              <div className="flex items-center bg-brand-500 rounded-xl p-0.5 text-white shadow-md shadow-brand-500/25">
-                                <button
-                                  onClick={() => handleRemoveOne(item.id)}
-                                  className="w-8 h-8 flex items-center justify-center text-white hover:bg-brand-600 rounded-lg active:scale-90 transition-transform"
-                                >
-                                  <Minus size={14} strokeWidth={3} />
-                                </button>
-                                <span className="w-6 text-center text-xs font-black select-none">
-                                  {cartQty}
-                                </span>
-                                <button
-                                  onClick={() => handleUpdateQty(item.id, cartQty + 1)}
-                                  className="w-8 h-8 flex items-center justify-center text-white hover:bg-brand-600 rounded-lg active:scale-90 transition-transform"
-                                >
-                                  <Plus size={14} strokeWidth={3} />
-                                </button>
-                              </div>
+                                <div className="flex items-center bg-brand-500 rounded-xl p-0.5 text-white shadow-md shadow-brand-500/25">
+                                  <button
+                                    onClick={() => handleRemoveOne(item.id)}
+                                    className="w-8 h-8 flex items-center justify-center text-white hover:bg-brand-600 rounded-lg active:scale-90 transition-transform"
+                                  >
+                                    <Minus size={14} strokeWidth={3} />
+                                  </button>
+                                  <span className="w-6 text-center text-xs font-black select-none">
+                                    {cartQty}
+                                  </span>
+                                  <button
+                                    onClick={() => {
+                                      if (item.modifiers && item.modifiers.length > 0) {
+                                        handleAddOne(item)
+                                      } else {
+                                        handleUpdateQty(item.id, cartQty + 1)
+                                      }
+                                    }}
+                                    className="w-8 h-8 flex items-center justify-center text-white hover:bg-brand-600 rounded-lg active:scale-90 transition-transform"
+                                  >
+                                    <Plus size={14} strokeWidth={3} />
+                                  </button>
+                                </div>
                             ) : (
                               <button
                                 id={`add-item-${item.id}`}
@@ -422,6 +445,14 @@ export default function MenuPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ItemModifierModal
+        item={selectedModifierItem}
+        isOpen={!!selectedModifierItem}
+        onClose={() => setSelectedModifierItem(null)}
+        onAddToCart={handleModalAddToCart}
+        currency={currency}
+      />
     </div>
   )
 }

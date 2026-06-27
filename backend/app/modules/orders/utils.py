@@ -58,7 +58,9 @@ async def build_order_event_payload(
         items_by_order[oi.order_id].append({
             "name": mi.name if mi else "Unknown",
             "quantity": oi.quantity,
+            "unit_price": float(oi.unit_price),
             "notes": oi.item_notes,
+            "selected_modifiers": oi.selected_modifiers,
         })
 
     # Build payloads

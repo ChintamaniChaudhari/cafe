@@ -41,6 +41,7 @@ class MenuService:
                             "price": float(item.base_price),
                             "is_available": item.is_available,
                             "image_url": item.image_url,
+                            "modifiers": item.modifiers or [],
                         }
                         for item in items
                     ],
@@ -49,14 +50,12 @@ class MenuService:
 
         return {"categories": result}
 
-    async def get_item_price(self, item_id: uuid.UUID) -> float | None:
+    async def get_item(self, item_id: uuid.UUID):
         """
-        Get the current price for a menu item.
-
-        Called by the Orders service to snapshot pricing (No-Join Rule).
+        Get the menu item by ID.
         """
         item = await self.repo.get_item_by_id(item_id)
         if item and item.is_available and not item.is_deleted:
-            return float(item.base_price)
+            return item
         return None
 

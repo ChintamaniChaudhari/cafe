@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, SQLModel, Column, JSON
 
 
 class OrderStatus(str, enum.Enum):
@@ -15,14 +15,16 @@ class OrderStatus(str, enum.Enum):
     PREPARING = "PREPARING"
     READY = "READY"
     SERVED = "SERVED"
+    CANCELED = "CANCELED"
 
 
 # ── Valid State Transitions ───────────────────────────────────
 _VALID_TRANSITIONS: dict[OrderStatus, list[OrderStatus]] = {
-    OrderStatus.RECEIVED: [OrderStatus.PREPARING],
-    OrderStatus.PREPARING: [OrderStatus.READY],
-    OrderStatus.READY: [OrderStatus.SERVED],
+    OrderStatus.RECEIVED: [OrderStatus.PREPARING, OrderStatus.CANCELED],
+    OrderStatus.PREPARING: [OrderStatus.READY, OrderStatus.CANCELED],
+    OrderStatus.READY: [OrderStatus.SERVED, OrderStatus.CANCELED],
     OrderStatus.SERVED: [],  # Terminal state
+    OrderStatus.CANCELED: [], # Terminal state
 }
 
 
@@ -85,3 +87,4 @@ class OrderItem(SQLModel, table=True):
     quantity: int = Field(ge=1)
     unit_price: Decimal = Field(max_digits=10, decimal_places=2)
     item_notes: str | None = Field(default=None, max_length=256)
+    selected_modifiers: list[dict] = Field(default_factory=list, sa_column=Column(JSON))

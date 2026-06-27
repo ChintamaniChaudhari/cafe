@@ -40,12 +40,29 @@ class OrderService:
         subtotal = 0.0
 
         for item_req in request.items:
-            price = await self.menu_service.get_item_price(item_req.item_id)
-            if price is None:
+            menu_item = await self.menu_service.get_item(item_req.item_id)
+            if not menu_item:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Menu item {item_req.item_id} is not available.",
                 )
+
+            # Compute price based on base_price + any valid selected modifiers
+            price = float(menu_item.base_price)
+            valid_modifiers = []
+            if item_req.selected_modifiers:
+                # Modifiers defined on the menu item
+                item_modifiers = menu_item.modifiers or []
+                for req_mod in item_req.selected_modifiers:
+                    # check if req_mod matches an available modifier
+                    for allowed_mod in item_modifiers:
+                        if allowed_mod.get("name") == req_mod.get("name"):
+                            price += float(allowed_mod.get("price", 0))
+                            valid_modifiers.append({
+                                "name": allowed_mod.get("name"),
+                                "price": float(allowed_mod.get("price", 0))
+                            })
+                            break
 
             line_total = price * item_req.quantity
             subtotal += line_total
@@ -56,6 +73,7 @@ class OrderService:
                     "quantity": item_req.quantity,
                     "unit_price": price,
                     "notes": item_req.notes,
+                    "selected_modifiers": valid_modifiers,
                 }
             )
 

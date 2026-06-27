@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   ChefHat, 
@@ -10,7 +11,8 @@ import {
   Coffee,
   Radio,
   AlertTriangle,
-  Wifi
+  Wifi,
+  LogOut
 } from 'lucide-react'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { updateOrderStatus } from '../api/client'
@@ -21,7 +23,7 @@ interface OrderCard {
   table_label: string
   status: string
   total_amount?: number
-  items: { name: string; quantity: number; notes: string | null }[]
+  items: { name: string; quantity: number; notes: string | null; selected_modifiers?: { name: string; price: number }[] }[]
   created_at?: string
 }
 
@@ -50,10 +52,23 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 export default function KitchenDisplay() {
+  const navigate = useNavigate()
   const [orders, setOrders] = useState<Map<string, OrderCard>>(new Map())
   const [updating, setUpdating] = useState<string | null>(null)
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [, setTick] = useState(0)
+
+  // Validate session
+  useEffect(() => {
+    const token = localStorage.getItem('admin_token')
+    if (!token) navigate('/admin/login')
+  }, [navigate])
+
+  const handleLogout = () => {
+    localStorage.removeItem('admin_token')
+    localStorage.removeItem('user_role')
+    navigate('/admin/login')
+  }
 
   // Force re-renders every 15 seconds to update urgency timers
   useEffect(() => {
@@ -103,7 +118,7 @@ export default function KitchenDisplay() {
           const updated = new Map(prev)
           const existing = updated.get(msg.data!.order_id)
           if (existing) {
-            if (msg.data!.status === 'SERVED') {
+            if (msg.data!.status === 'SERVED' || msg.data!.status === 'CANCELED') {
               updated.delete(msg.data!.order_id)
             } else {
               updated.set(msg.data!.order_id, { ...existing, status: msg.data!.status })
@@ -191,6 +206,14 @@ export default function KitchenDisplay() {
             <Radio size={10} className={connected ? 'animate-pulse' : ''} />
             <span className="hidden sm:inline">{connected ? 'Connected' : 'Offline'}</span>
           </div>
+
+          <button
+            onClick={handleLogout}
+            className="w-10 h-10 rounded-xl border border-white/5 bg-dark-800 text-gray-400 hover:text-white hover:bg-dark-700 flex items-center justify-center transition-all active:scale-95"
+            title="Log Out"
+          >
+            <LogOut size={16} />
+          </button>
         </div>
       </header>
 
@@ -295,6 +318,7 @@ function OrderKdsCard({
   loading: boolean
 }) {
   const [timeDiff, setTimeDiff] = useState(0)
+  const [canceling, setCanceling] = useState(false)
 
   useEffect(() => {
     if (!order.created_at) return
@@ -362,43 +386,71 @@ function OrderKdsCard({
                   {item.notes}
                 </p>
               )}
+              {item.selected_modifiers && item.selected_modifiers.length > 0 && (
+                <div className="text-[10px] text-gray-400 mt-1 pl-1">
+                  + {item.selected_modifiers.map(m => m.name).join(', ')}
+                </div>
+              )}
             </div>
           </div>
         ))}
       </div>
 
       {/* Card Footer Actions */}
-      <div className="flex items-center justify-between pt-3 border-t border-white/5 mt-1">
-        
-        {/* Timer */}
-        <div className="flex items-center gap-1.5 text-xs font-semibold">
-          <Clock size={13} className="text-gray-400" />
-          <span className={timerColor}>{timeDiff} min ago</span>
-        </div>
+      <div className="flex flex-col gap-2 pt-3 border-t border-white/5 mt-1">
+        <div className="flex items-center justify-between">
+          
+          {/* Timer */}
+          <div className="flex items-center gap-1.5 text-xs font-semibold">
+            <Clock size={13} className="text-gray-400" />
+            <span className={timerColor}>{timeDiff} min ago</span>
+          </div>
 
-        {/* Action Button */}
-        {actionLabel && (
+          {/* Action Button */}
+          {actionLabel && (
+            <button
+              disabled={loading || canceling}
+              onClick={() => onTap(order)}
+              className={`flex items-center justify-center gap-1.5 text-xs font-black uppercase tracking-wider py-2 px-4 rounded-xl border shadow-sm transition-all select-none active:scale-[0.93] ${
+                loading 
+                  ? 'bg-dark-800 border-white/5 text-gray-500 cursor-wait' 
+                  : order.status === 'RECEIVED'
+                  ? 'bg-accent-blue/15 border-accent-blue/30 text-accent-blue hover:bg-accent-blue hover:text-white'
+                  : order.status === 'PREPARING'
+                  ? 'bg-accent-amber/15 border-accent-amber/30 text-accent-amber hover:bg-accent-amber hover:text-white'
+                  : 'bg-accent-emerald/15 border-accent-emerald/30 text-accent-emerald hover:bg-accent-emerald hover:text-white'
+              }`}
+            >
+              {loading ? (
+                <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <IconComponent size={12} strokeWidth={3} />
+                  <span>{actionLabel}</span>
+                </>
+              )}
+            </button>
+          )}
+        </div>
+        
+        {/* Cancel Button */}
+        {order.status !== 'READY' && (
           <button
-            disabled={loading}
-            onClick={() => onTap(order)}
-            className={`flex items-center justify-center gap-1.5 text-xs font-black uppercase tracking-wider py-2 px-4 rounded-xl border shadow-sm transition-all select-none active:scale-[0.93] ${
-              loading 
-                ? 'bg-dark-800 border-white/5 text-gray-500 cursor-wait' 
-                : order.status === 'RECEIVED'
-                ? 'bg-accent-blue/15 border-accent-blue/30 text-accent-blue hover:bg-accent-blue hover:text-white'
-                : order.status === 'PREPARING'
-                ? 'bg-accent-amber/15 border-accent-amber/30 text-accent-amber hover:bg-accent-amber hover:text-white'
-                : 'bg-accent-emerald/15 border-accent-emerald/30 text-accent-emerald hover:bg-accent-emerald hover:text-white'
-            }`}
+            disabled={canceling || loading}
+            onClick={async () => {
+              if (!window.confirm(`Are you sure you want to cancel order #${order.order_number}?`)) return
+              setCanceling(true)
+              try {
+                await updateOrderStatus(order.order_id, 'CANCELED')
+              } catch (e) {
+                console.error(e)
+                alert('Failed to cancel order.')
+              }
+              setCanceling(false)
+            }}
+            className="flex items-center justify-center gap-1 text-[10px] uppercase font-bold text-gray-500 hover:text-accent-rose transition-colors py-1 disabled:opacity-50"
           >
-            {loading ? (
-              <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <>
-                <IconComponent size={12} strokeWidth={3} />
-                <span>{actionLabel}</span>
-              </>
-            )}
+            {canceling ? 'Canceling...' : 'Cancel Order'}
           </button>
         )}
       </div>

@@ -1,32 +1,23 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  Wifi, 
-  WifiOff, 
-  ClipboardList, 
-  ChefHat, 
-  CheckCircle2, 
-  UtensilsCrossed,
-  ArrowRight,
-  ShoppingBag,
-  Sparkles
-} from 'lucide-react'
+import { ArrowLeft, Clock, ChefHat, CheckCircle2, Utensils, Wifi, WifiOff, Sparkles, ShoppingBag, Receipt, AlertCircle, Star } from 'lucide-react'
 import { useWebSocket } from '../hooks/useWebSocket'
+import { apiFetch } from '../api/client'
 
 interface OrderInfo {
   order_id: string
   order_number: number
   table_label: string
   status: string
-  items?: { name: string; quantity: number; notes: string | null }[]
+  items?: { name: string; quantity: number; notes: string | null; selected_modifiers?: { name: string; price: number }[] }[]
 }
 
 const STATUS_DISPLAY = {
   RECEIVED: { 
     label: 'Order Placed', 
     desc: 'The kitchen has received your order.',
-    icon: ClipboardList, 
+    icon: Clock, 
     color: 'text-accent-blue bg-accent-blue/10 border-accent-blue/20' 
   },
   PREPARING: { 
@@ -44,9 +35,15 @@ const STATUS_DISPLAY = {
   SERVED: { 
     label: 'Enjoy Your Meal', 
     desc: 'Order served successfully. Enjoy!',
-    icon: UtensilsCrossed, 
+    icon: Utensils, 
     color: 'text-accent-violet bg-accent-violet/10 border-accent-violet/20' 
   },
+  CANCELED: {
+    label: 'Order Canceled',
+    desc: 'This order was canceled.',
+    icon: AlertCircle,
+    color: 'text-accent-rose bg-accent-rose/10 border-accent-rose/20'
+  }
 }
 
 const STATUS_ORDER = ['RECEIVED', 'PREPARING', 'READY', 'SERVED']
@@ -56,6 +53,12 @@ export default function OrderStatus() {
   const navigate = useNavigate()
   const [order, setOrder] = useState<OrderInfo | null>(null)
   const [celebrate, setCelebrate] = useState(false)
+  const [checkoutRequested, setCheckoutRequested] = useState(false)
+  const [checkoutLoading, setCheckoutLoading] = useState(false)
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false)
+  const [rating, setRating] = useState(5)
+  const [feedbackComment, setFeedbackComment] = useState('')
+  const [feedbackLoading, setFeedbackLoading] = useState(false)
 
   // Load initial order cache
   useEffect(() => {
@@ -104,6 +107,36 @@ export default function OrderStatus() {
     },
     [orderId]
   )
+
+  const handleCheckout = async () => {
+    setCheckoutLoading(true)
+    try {
+      await apiFetch('/api/v1/s/checkout', { method: 'POST' })
+      setCheckoutRequested(true)
+      alert("Bill requested successfully! The staff will be with you shortly.")
+    } catch (e) {
+      console.error(e)
+      alert("Failed to request bill.")
+    } finally {
+      setCheckoutLoading(false)
+    }
+  }
+
+  const submitFeedback = async () => {
+    setFeedbackLoading(true)
+    try {
+      await apiFetch('/api/v1/s/feedback', {
+        method: 'POST',
+        body: JSON.stringify({ rating, comment: feedbackComment })
+      })
+      setFeedbackSubmitted(true)
+    } catch (e) {
+      console.error(e)
+      alert("Failed to submit feedback.")
+    } finally {
+      setFeedbackLoading(false)
+    }
+  }
 
   const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/v1/ws/kitchen`
   const { connected, hasLongDisconnect } = useWebSocket(wsUrl, { onMessage: handleMessage })
@@ -224,14 +257,15 @@ export default function OrderStatus() {
         </motion.div>
 
         {/* Vertical Timeline Steps */}
-        <div className="glass-card rounded-2xl p-5 space-y-6">
-          {STATUS_ORDER.map((s, idx) => {
-            const stepInfo = STATUS_DISPLAY[s as keyof typeof STATUS_DISPLAY]
-            const StepIcon = stepInfo.icon
-            const isCompleted = idx < currentIdx
-            const isActive = idx === currentIdx
-            
-            return (
+        {currentStatus !== 'CANCELED' && (
+          <div className="glass-card rounded-2xl p-5 space-y-6">
+            {STATUS_ORDER.map((s, idx) => {
+              const stepInfo = STATUS_DISPLAY[s as keyof typeof STATUS_DISPLAY]
+              const StepIcon = stepInfo.icon
+              const isCompleted = idx < currentIdx
+              const isActive = idx === currentIdx
+              
+              return (
               <div key={s} className="flex gap-4 relative last:pb-0">
                 {/* Visual connecting line */}
                 {idx < STATUS_ORDER.length - 1 && (
@@ -272,6 +306,46 @@ export default function OrderStatus() {
             )
           })}
         </div>
+        )}
+
+        {/* Feedback Section (Only if Served) */}
+        {currentStatus === 'SERVED' && !feedbackSubmitted && (
+          <div className="glass-card rounded-2xl p-6 border border-white/10 space-y-4">
+            <h3 className="text-lg font-black text-white text-center">How was your experience?</h3>
+            <div className="flex justify-center gap-2">
+              {[1, 2, 3, 4, 5].map(star => (
+                <button 
+                  key={star} 
+                  onClick={() => setRating(star)}
+                  className={`transition-colors ${star <= rating ? 'text-accent-amber' : 'text-gray-600 hover:text-accent-amber/50'}`}
+                >
+                  <Star size={32} fill={star <= rating ? 'currentColor' : 'none'} />
+                </button>
+              ))}
+            </div>
+            <textarea
+              value={feedbackComment}
+              onChange={e => setFeedbackComment(e.target.value)}
+              placeholder="Any comments? (Optional)"
+              className="w-full bg-dark-900 border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-brand-500/50 resize-none h-20"
+            />
+            <button
+              onClick={submitFeedback}
+              disabled={feedbackLoading}
+              className="w-full bg-accent-amber hover:bg-accent-amber/90 text-dark-950 font-black py-3 rounded-xl transition-all active:scale-[0.99] disabled:opacity-50"
+            >
+              {feedbackLoading ? 'Submitting...' : 'Submit Feedback'}
+            </button>
+          </div>
+        )}
+
+        {feedbackSubmitted && (
+          <div className="glass-card rounded-2xl p-6 border border-accent-emerald/20 text-center space-y-2">
+            <div className="text-accent-emerald flex justify-center mb-2"><CheckCircle2 size={32} /></div>
+            <h3 className="font-bold text-white text-lg">Thank you!</h3>
+            <p className="text-gray-400 text-sm">Your feedback helps us improve.</p>
+          </div>
+        )}
 
         {/* Order Items Info Card */}
         {order && (
@@ -283,14 +357,21 @@ export default function OrderStatus() {
             
             <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
               {order.items?.map((item, i) => (
-                <div key={i} className="flex justify-between text-xs py-0.5">
-                  <span className="text-gray-300 font-medium">
-                    {item.quantity}× <span className="text-white font-extrabold">{item.name}</span>
-                  </span>
-                  {item.notes && (
-                    <span className="text-brand-400 italic text-[10px] bg-brand-500/5 px-2 py-0.5 rounded border border-brand-500/10 max-w-[150px] truncate">
-                      {item.notes}
+                <div key={i} className="flex flex-col py-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-300 font-medium">
+                      {item.quantity}× <span className="text-white font-extrabold">{item.name}</span>
                     </span>
+                    {item.notes && (
+                      <span className="text-brand-400 italic text-[10px] bg-brand-500/5 px-2 py-0.5 rounded border border-brand-500/10 max-w-[150px] truncate ml-2">
+                        {item.notes}
+                      </span>
+                    )}
+                  </div>
+                  {item.selected_modifiers && item.selected_modifiers.length > 0 && (
+                    <div className="text-[10px] text-gray-500 mt-0.5 pl-4">
+                      + {item.selected_modifiers.map(m => m.name).join(', ')}
+                    </div>
                   )}
                 </div>
               ))}
@@ -307,14 +388,24 @@ export default function OrderStatus() {
 
       {/* Footer Navigation Action */}
       <footer className="max-w-lg mx-auto w-full px-4 mt-8">
-        <button
-          onClick={() => navigate('/menu')}
-          className="w-full flex items-center justify-center gap-2 bg-dark-800 hover:bg-dark-700 border border-white/10 text-white font-extrabold py-3.5 px-4 rounded-2xl transition-all active:scale-[0.99] group text-sm"
-        >
-          <ShoppingBag size={16} />
-          Order more items 
-          <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform text-brand-400" />
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => navigate('/menu')}
+            className="flex-1 flex items-center justify-center gap-2 bg-dark-800 hover:bg-dark-700 border border-white/10 text-white font-extrabold py-3.5 px-4 rounded-2xl transition-all active:scale-[0.99] text-sm"
+          >
+            <ShoppingBag size={16} />
+            Order more
+          </button>
+          
+          <button
+            onClick={handleCheckout}
+            disabled={checkoutRequested || checkoutLoading}
+            className="flex-1 flex items-center justify-center gap-2 bg-brand-500 hover:bg-brand-600 border border-brand-500/20 text-white font-extrabold py-3.5 px-4 rounded-2xl transition-all active:scale-[0.99] text-sm disabled:opacity-50"
+          >
+            <Receipt size={16} />
+            {checkoutRequested ? 'Bill Requested' : 'Request Bill'}
+          </button>
+        </div>
       </footer>
     </div>
   )

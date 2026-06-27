@@ -3,7 +3,7 @@
 import uuid
 from decimal import Decimal
 
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, SQLModel, Column, JSON
 
 
 class MenuCategory(SQLModel, table=True):
@@ -35,3 +35,4 @@ class MenuItem(SQLModel, table=True):
     is_available: bool = Field(default=True)
     is_deleted: bool = Field(default=False)  # Soft delete
     image_url: str | None = Field(default=None)
+    modifiers: list[dict] = Field(default_factory=list, sa_column=Column(JSON))
