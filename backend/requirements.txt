@@ -9,3 +9,4 @@ argon2-cffi>=23.1
 httptools
 websockets>=12.0
 email-validator>=2.0.0
+python-multipart

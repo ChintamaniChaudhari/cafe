@@ -155,9 +155,22 @@ export async function updateOrderStatus(orderId: string, status: string): Promis
     method: 'PATCH',
     headers,
     credentials: 'include',
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ status })
   })
-  if (!res.ok) throw new Error(`Status update failed: ${res.status}`)
+  if (!res.ok) {
+    let msg = `Update failed: ${res.status}`;
+    try {
+      const errData = await res.json();
+      msg = errData.detail || msg;
+    } catch (e) {}
+    throw new Error(msg)
+  }
+  return res.json()
+}
+
+export async function fetchSessionOrders() {
+  const res = await fetch(`${BASE}/orders/session`, { credentials: 'include' })
+  if (!res.ok) throw new Error(`Session orders fetch failed: ${res.status}`)
   return res.json()
 }
 
@@ -169,6 +182,20 @@ export async function addMenuItem(data: { name: string; description: string; bas
     body: JSON.stringify(data),
   })
   if (!res.ok) throw new Error(`Failed to add menu item: ${res.status}`)
+  return res.json()
+}
+
+export async function uploadImage(file: File) {
+  const token = localStorage.getItem('admin_token')
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const res = await fetch(`${BASE}/admin/upload`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}` },
+    body: formData,
+  })
+  if (!res.ok) throw new Error(`Failed to upload image: ${res.status}`)
   return res.json()
 }
 
@@ -270,7 +297,14 @@ export async function deleteTable(id: string) {
 
 export async function requestCheckout() {
   const res = await fetch(`${BASE}/s/checkout`, { method: 'POST', credentials: 'include' })
-  if (!res.ok) throw new Error(`Failed to request checkout: ${res.status}`)
+  if (!res.ok) {
+    let msg = `Failed to request checkout: ${res.status}`;
+    try {
+      const errData = await res.json();
+      msg = errData.detail || msg;
+    } catch (e) {}
+    throw new Error(msg)
+  }
   return res.json()
 }
 

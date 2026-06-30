@@ -8,6 +8,8 @@ import KitchenDisplay from './pages/KitchenDisplay'
 import AdminLogin from './pages/AdminLogin'
 import AdminDashboard from './pages/AdminDashboard'
 import NotFoundPage from './pages/NotFoundPage'
+import CustomerBill from './pages/CustomerBill'
+import { Toaster } from 'react-hot-toast'
 
 function AnimatedApp() {
   const location = useLocation()
@@ -18,6 +20,7 @@ function AnimatedApp() {
         <Route path="/s/:shortcode" element={<ScanLanding />} />
         <Route path="/menu" element={<MenuPage />} />
         <Route path="/cart" element={<CartPage />} />
+        <Route path="/bill" element={<CustomerBill />} />
         <Route path="/order/:orderId" element={<OrderStatus />} />
         <Route path="/kitchen" element={<KitchenDisplay />} />
         <Route path="/admin/login" element={<AdminLogin />} />
@@ -50,6 +53,7 @@ function AnimatedApp() {
 function App() {
   return (
     <BrowserRouter>
+      <Toaster position="top-center" toastOptions={{ style: { background: '#1f2937', color: '#fff' } }} />
       <AnimatedApp />
     </BrowserRouter>
   )

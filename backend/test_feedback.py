@@ -42,3 +42,17 @@ async def run():
             print("ERROR:", e)
 
 asyncio.run(run())
+
+import asyncio
+import uuid
+from app.core.database import async_session_factory
+from sqlalchemy import text
+
+async def main():
+    async with async_session_factory() as db:
+        res = await db.execute(text('SELECT * FROM feedback'))
+        print(res.all())
+
+if __name__ == '__main__':
+    asyncio.run(main())
+

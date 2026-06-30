@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { updateOrderStatus } from '../api/client'
+import toast from 'react-hot-toast'
 
 interface OrderCard {
   order_id: string
@@ -56,6 +57,7 @@ export default function KitchenDisplay() {
   const [orders, setOrders] = useState<Map<string, OrderCard>>(new Map())
   const [updating, setUpdating] = useState<string | null>(null)
   const [soundEnabled, setSoundEnabled] = useState(true)
+  const [hasInteracted, setHasInteracted] = useState(false)
   const [, setTick] = useState(0)
 
   // Validate session
@@ -152,8 +154,9 @@ export default function KitchenDisplay() {
     setUpdating(order.order_id)
     try {
       await updateOrderStatus(order.order_id, next)
-    } catch (err) {
+    } catch (err: any) {
       console.error('Status update failed:', err)
+      toast.error(err.message || 'Status update failed')
     }
     setUpdating(null)
   }
@@ -165,6 +168,18 @@ export default function KitchenDisplay() {
 
   return (
     <div className="min-h-screen bg-dark-950 text-white flex flex-col font-sans select-none overflow-x-hidden p-6">
+      {!hasInteracted && (
+        <div 
+          className="fixed inset-0 z-50 bg-dark-950/80 backdrop-blur-sm flex items-center justify-center cursor-pointer"
+          onClick={() => setHasInteracted(true)}
+        >
+          <div className="glass-card p-8 rounded-2xl flex flex-col items-center max-w-sm text-center">
+            <Volume2 size={48} className="text-brand-500 mb-4 animate-bounce" />
+            <h2 className="text-2xl font-bold text-white mb-2">Tap to Start</h2>
+            <p className="text-gray-400">Interact with the screen to enable order alert sounds.</p>
+          </div>
+        </div>
+      )}
       
       {/* KDS Control Header */}
       <header className="glass-strong px-6 py-4 flex items-center justify-between z-10 mb-6 rounded-2xl">
@@ -444,7 +459,7 @@ function OrderKdsCard({
                 await updateOrderStatus(order.order_id, 'CANCELED')
               } catch (e) {
                 console.error(e)
-                alert('Failed to cancel order.')
+                toast.error('Failed to cancel order.')
               }
               setCanceling(false)
             }}

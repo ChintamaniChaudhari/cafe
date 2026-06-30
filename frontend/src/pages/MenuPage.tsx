@@ -10,7 +10,8 @@ import {
   Leaf, 
   Utensils, 
   Plus, 
-  Minus
+  Minus,
+  Receipt
 } from 'lucide-react'
 import { fetchMenu, type CategoryData, type MenuItemData } from '../api/client'
 import { addToCart, getCart, updateQuantity, removeFromCart, type CartItem } from '../store/cart'
@@ -193,25 +194,33 @@ export default function MenuPage() {
               </div>
             </div>
             
-            <button
-              id="cart-button"
-              onClick={() => navigate('/cart')}
-              className="relative w-12 h-12 flex items-center justify-center rounded-xl bg-dark-800 border border-white/10 hover:bg-dark-700 hover:border-brand-500/30 text-white transition-all active:scale-95"
-            >
-              <ShoppingBag size={20} />
-              <AnimatePresence>
-                {cartTotalCount > 0 && (
-                  <motion.span 
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    exit={{ scale: 0 }}
-                    className="absolute -top-1.5 -right-1.5 bg-brand-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black border-2 border-dark-900 animate-pulse"
-                  >
-                    {cartTotalCount}
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => navigate('/bill')}
+                className="w-12 h-12 flex items-center justify-center rounded-xl bg-dark-800 border border-white/10 hover:bg-dark-700 text-white transition-all active:scale-95"
+              >
+                <Receipt size={20} />
+              </button>
+              <button
+                id="cart-button"
+                onClick={() => navigate('/cart')}
+                className="relative w-12 h-12 flex items-center justify-center rounded-xl bg-dark-800 border border-white/10 hover:bg-dark-700 hover:border-brand-500/30 text-white transition-all active:scale-95"
+              >
+                <ShoppingBag size={20} />
+                <AnimatePresence>
+                  {cartTotalCount > 0 && (
+                    <motion.span 
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      exit={{ scale: 0 }}
+                      className="absolute -top-1.5 -right-1.5 bg-brand-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black border-2 border-dark-900 animate-pulse"
+                    >
+                      {cartTotalCount}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </button>
+            </div>
           </div>
 
           {/* Search and Filters */}

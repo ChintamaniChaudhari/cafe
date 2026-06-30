@@ -19,6 +19,36 @@ logger = logging.getLogger(__name__)
 class OrderService:
     """Handles order creation (with price snapshots) and status transitions."""
 
+
+    async def get_session_orders(self, session_id: uuid.UUID) -> dict:
+        orders = await self.repo.get_orders_for_session(session_id)
+        
+        data = []
+        for o in orders:
+            items_data = []
+            for item in o.items:
+                items_data.append({
+                    "id": str(item.id),
+                    "name": item.menu_item.name if item.menu_item else "Unknown Item",
+                    "quantity": item.quantity,
+                    "unit_price": float(item.unit_price),
+                    "notes": item.item_notes,
+                    "selected_modifiers": item.selected_modifiers
+                })
+            
+            data.append({
+                "id": str(o.id),
+                "order_number": o.order_number,
+                "status": o.status,
+                "subtotal": float(o.subtotal),
+                "tax_amount": float(o.tax_amount),
+                "total_amount": float(o.total_amount),
+                "created_at": o.created_at.isoformat(),
+                "items": items_data
+            })
+            
+        return {"status": "success", "data": data}
+
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
         self.repo = OrderRepository(db)

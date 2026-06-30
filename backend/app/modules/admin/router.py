@@ -2,7 +2,9 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+import shutil
+import os
 from sqlalchemy import select, func, desc
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,6 +25,30 @@ router = APIRouter(
     tags=["admin"],
     dependencies=[Depends(require_role([UserRole.ADMIN]))],
 )
+
+
+@router.post("/upload", status_code=status.HTTP_201_CREATED)
+async def upload_image(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Upload an image to the static directory."""
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image.")
+
+    # Sanitize the filename to prevent directory traversal attacks
+    safe_filename = os.path.basename(file.filename) if file.filename else "upload.bin"
+    # Ensure it only has safe characters
+    import re
+    safe_filename = re.sub(r'[^a-zA-Z0-9_\-\.]', '_', safe_filename)
+    
+    filename = f"{uuid.uuid4()}_{safe_filename}"
+    filepath = os.path.join("app/static/images", filename)
+
+    with open(filepath, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    return {"url": f"/static/images/{filename}"}
 
 
 @router.post("/categories", status_code=status.HTTP_201_CREATED)

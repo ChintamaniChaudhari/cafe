@@ -9,8 +9,9 @@ import {
   fetchTables, createTable, deleteTable, DiningTable,
   addMenuItem, editMenuItem, deleteMenuItem, apiFetch
 } from '../api/client';
+import toast from 'react-hot-toast';
 import { QRCodeCanvas } from 'qrcode.react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import MenuItemModal from '../components/MenuItemModal';
 
 type TabType = 'MENU' | 'ORDERS' | 'SESSIONS' | 'TABLES' | 'ANALYTICS' | 'STAFF' | 'FEEDBACK';
@@ -29,13 +30,26 @@ export default function AdminDashboard() {
   const [newStaffRole, setNewStaffRole] = useState<'ADMIN'|'KITCHEN'>('KITCHEN');
   const [orders, setOrders] = useState<AdminOrderHistory[]>([]);
   const [sessions, setSessions] = useState<AdminSession[]>([]);
+  const [printSession, setPrintSession] = useState<AdminSession | null>(null);
   const [tables, setTables] = useState<DiningTable[]>([]);
+
+  useEffect(() => {
+    if (printSession) {
+      setTimeout(() => {
+        window.print();
+        setPrintSession(null);
+      }, 100);
+    }
+  }, [printSession]);
   const [newTableLabel, setNewTableLabel] = useState('');
+  // @ts-ignore
   const [ordersPage, setOrdersPage] = useState(0);
+  // @ts-ignore
   const [totalOrders, setTotalOrders] = useState(0);
   const ORDERS_PER_PAGE = 20;
   
   const [loading, setLoading] = useState(true);
+  // @ts-ignore
   const [ordersLoading, setOrdersLoading] = useState(false);
   
   // Modal States
@@ -159,21 +173,11 @@ export default function AdminDashboard() {
       });
       setNewStaffUsername('');
       setNewStaffPassword('');
+      toast.success('Staff account created successfully!');
       loadStaff();
     } catch (e) {
       console.error(e);
-      alert('Failed to create staff account.');
-    }
-  };
-
-  const handleDeleteStaff = async (userId: string) => {
-    if (!window.confirm("Are you sure you want to delete this staff member?")) return;
-    try {
-      await apiFetch(`/api/v1/admin/staff/${userId}`, { method: 'DELETE' });
-      loadStaff();
-    } catch (e) {
-      console.error(e);
-      alert('Failed to delete staff account. You cannot delete your own account.');
+      toast.error('Failed to create staff account.');
     }
   };
 
@@ -225,10 +229,11 @@ export default function AdminDashboard() {
     try {
       await createTable(newTableLabel.trim());
       setNewTableLabel('');
+      toast.success('Table created.');
       await loadTables();
     } catch (e) {
       console.error(e);
-      alert('Failed to create table. Label might not be unique.');
+      toast.error('Failed to create table. Label might not be unique.');
     }
   };
 
@@ -250,7 +255,41 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-dark-950 text-white relative">
+    <div className="min-h-screen bg-dark-950 text-white font-sans selection:bg-brand-500/30">
+      {/* Printable Receipt */}
+      {printSession && (
+        <div className="hidden print:block fixed inset-0 bg-white text-black p-8 z-[9999] font-mono">
+          <div className="max-w-xs mx-auto border-2 border-black p-6">
+            <h1 className="text-2xl font-black mb-1 text-center">CAFE OS</h1>
+            <p className="text-center text-xs mb-6 pb-4 border-b border-black border-dashed">Official Receipt</p>
+            
+            <div className="text-xs mb-4">
+              <div className="flex justify-between mb-1">
+                <span>Date:</span>
+                <span>{new Date().toLocaleDateString()}</span>
+              </div>
+              <div className="flex justify-between mb-1">
+                <span>Session:</span>
+                <span className="truncate ml-4">{printSession.id.split('-')[0]}</span>
+              </div>
+            </div>
+
+            <div className="border-b border-black border-dashed my-4"></div>
+            
+            <div className="flex justify-between items-end mb-6">
+              <span className="font-bold">TOTAL AMOUNT</span>
+              <span className="text-xl font-black">₹{printSession.total_bill.toFixed(2)}</span>
+            </div>
+
+            <div className="border-b border-black border-dashed my-4"></div>
+            
+            <p className="text-center text-xs font-bold mt-4">THANK YOU!</p>
+            <p className="text-center text-[10px] mt-1">Please come again</p>
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
       <div className="ambient-glow bg-brand-500 top-0 right-0 w-96 h-96 opacity-10" />
       
       <nav className="sticky top-0 z-30 glass-strong shadow-lg border-b border-white/5">
@@ -440,8 +479,11 @@ export default function AdminDashboard() {
                       <tr key={session.id}>
                         <td className="px-6 py-4">{session.id}</td>
                         <td className="px-6 py-4">{session.status}</td>
-                        <td className="px-6 py-4 text-right">
-                          <button onClick={() => handleCloseSession(session.id)} className="text-brand-400 font-bold">Mark Paid</button>
+                        <td className="px-6 py-4 text-right flex justify-end gap-3">
+                          {session.status !== 'CLOSED' && (
+                            <button onClick={() => handleCloseSession(session.id)} className="text-brand-400 font-bold hover:text-brand-300">Mark Paid</button>
+                          )}
+                          <button onClick={() => setPrintSession(session)} className="text-gray-400 font-bold hover:text-white">Print</button>
                         </td>
                       </tr>
                     ))}
@@ -519,9 +561,11 @@ export default function AdminDashboard() {
                             if (window.confirm('Delete this table?')) {
                               try {
                                 await deleteTable(table.id);
+                                toast.success('Table deleted.');
                                 loadTables();
                               } catch (e) {
-                                alert('Failed to delete table.');
+                                console.error(e);
+                                toast.error('Failed to delete table.');
                               }
                             }
                           }}
@@ -595,8 +639,8 @@ export default function AdminDashboard() {
                             cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                             contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', color: '#fff', borderRadius: '0.75rem' }}
                             itemStyle={{ color: '#0ea5e9' }}
-                            formatter={(value: number) => [`₹${value.toFixed(2)}`, 'Revenue']}
-                            labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                            formatter={(value: any) => [`₹${Number(value).toFixed(2)}`, 'Revenue']}
+                            labelFormatter={(label: any) => new Date(label).toLocaleDateString()}
                           />
                           <Bar dataKey="revenue" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
                         </BarChart>
@@ -612,7 +656,7 @@ export default function AdminDashboard() {
                 <div className="glass-card p-6 rounded-2xl border border-white/5">
                   <h3 className="text-lg font-bold text-white mb-4">Popular Items</h3>
                   <div className="space-y-4">
-                    {analytics.popular_items.map((item, idx) => (
+                    {analytics.popular_items.map((item: any, idx: number) => (
                       <div key={idx} className="flex items-center justify-between p-4 bg-dark-900/50 rounded-xl border border-white/5">
                         <div className="flex items-center gap-4">
                           <div className="w-8 h-8 rounded-full bg-brand-500/20 text-brand-400 flex items-center justify-center font-bold">

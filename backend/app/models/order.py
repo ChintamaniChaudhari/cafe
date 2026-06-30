@@ -5,7 +5,11 @@ import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from sqlmodel import Field, SQLModel, Column, JSON
+from sqlmodel import Field, SQLModel, Column, JSON, Relationship
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.menu import MenuItem
 
 
 class OrderStatus(str, enum.Enum):
@@ -70,6 +74,8 @@ class Order(SQLModel, table=True):
     total_amount: Decimal = Field(max_digits=10, decimal_places=2)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+    items: list["OrderItem"] = Relationship(back_populates="order")
+
 
 class OrderItem(SQLModel, table=True):
     """
@@ -88,3 +94,6 @@ class OrderItem(SQLModel, table=True):
     unit_price: Decimal = Field(max_digits=10, decimal_places=2)
     item_notes: str | None = Field(default=None, max_length=256)
     selected_modifiers: list[dict] = Field(default_factory=list, sa_column=Column(JSON))
+
+    order: "Order" = Relationship(back_populates="items")
+    menu_item: "MenuItem" = Relationship()

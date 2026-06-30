@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, Clock, ChefHat, CheckCircle2, Utensils, Wifi, WifiOff, Sparkles, ShoppingBag, Receipt, AlertCircle, Star } from 'lucide-react'
+import { Clock, ChefHat, CheckCircle2, Utensils, Wifi, WifiOff, Sparkles, ShoppingBag, Receipt, AlertCircle, Star } from 'lucide-react'
 import { useWebSocket } from '../hooks/useWebSocket'
-import { apiFetch } from '../api/client'
+import { apiFetch, requestCheckout } from '../api/client'
+import toast from 'react-hot-toast'
 
 interface OrderInfo {
   order_id: string
@@ -111,12 +112,12 @@ export default function OrderStatus() {
   const handleCheckout = async () => {
     setCheckoutLoading(true)
     try {
-      await apiFetch('/api/v1/s/checkout', { method: 'POST' })
+      await requestCheckout()
       setCheckoutRequested(true)
-      alert("Bill requested successfully! The staff will be with you shortly.")
-    } catch (e) {
+      toast.success("Bill requested successfully! The staff will be with you shortly.")
+    } catch (e: any) {
       console.error(e)
-      alert("Failed to request bill.")
+      toast.error(e.message || "Failed to request bill.")
     } finally {
       setCheckoutLoading(false)
     }
@@ -125,14 +126,15 @@ export default function OrderStatus() {
   const submitFeedback = async () => {
     setFeedbackLoading(true)
     try {
-      await apiFetch('/api/v1/s/feedback', {
+      await apiFetch('/s/feedback', {
         method: 'POST',
         body: JSON.stringify({ rating, comment: feedbackComment })
       })
       setFeedbackSubmitted(true)
+      toast.success("Thank you for your feedback!")
     } catch (e) {
       console.error(e)
-      alert("Failed to submit feedback.")
+      toast.error("Failed to submit feedback.")
     } finally {
       setFeedbackLoading(false)
     }

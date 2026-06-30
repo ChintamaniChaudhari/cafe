@@ -24,6 +24,18 @@ class OrderRepository:
         current_max = result.scalar_one()
         return current_max + 1
 
+    async def get_orders_for_session(self, session_id: uuid.UUID) -> list[Order]:
+        from sqlalchemy.orm import selectinload
+        from app.models.order import OrderItem
+        stmt = (
+            select(Order)
+            .where(Order.session_id == session_id)
+            .options(selectinload(Order.items).selectinload(OrderItem.menu_item))
+            .order_by(Order.created_at.desc())
+        )
+        res = await self.db.execute(stmt)
+        return list(res.scalars().all())
+
     async def create_order(
         self,
         session_id: uuid.UUID,

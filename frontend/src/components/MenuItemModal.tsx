@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X } from 'lucide-react';
+import { X, UploadCloud } from 'lucide-react';
+import { uploadImage } from '../api/client';
+import toast from 'react-hot-toast';
 import { CategoryData, MenuItemData } from '../api/client';
 
 interface MenuItemModalProps {
@@ -25,6 +27,7 @@ export default function MenuItemModal({ isOpen, onClose, onSave, onDelete, categ
   const [modifiers, setModifiers] = useState<{name: string, price: number}[]>([]);
   
   const [loading, setLoading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [error, setError] = useState('');
 
   // Reset form when modal opens or initialData changes
@@ -53,6 +56,22 @@ export default function MenuItemModal({ isOpen, onClose, onSave, onDelete, categ
       setError('');
     }
   }, [isOpen, initialData, categories, defaultCategoryId]);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingImage(true);
+    try {
+      const res = await uploadImage(file);
+      setImageUrl(res.url);
+      toast.success('Image uploaded successfully!');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to upload image');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -183,14 +202,36 @@ export default function MenuItemModal({ isOpen, onClose, onSave, onDelete, categ
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Image URL (Optional)</label>
-                <input
-                  type="text"
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  className="w-full bg-dark-900 border border-white/5 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-brand-500/50 transition-colors"
-                  placeholder="https://example.com/image.jpg"
-                />
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Image (Optional)</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    className="flex-1 bg-dark-900 border border-white/5 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-brand-500/50 transition-colors"
+                    placeholder="https://... or upload"
+                  />
+                  <div className="relative flex-shrink-0">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      disabled={uploadingImage}
+                    />
+                    <button
+                      type="button"
+                      disabled={uploadingImage}
+                      className="h-full px-4 rounded-xl bg-dark-800 border border-white/5 text-gray-300 hover:text-white hover:bg-dark-700 transition-colors flex items-center justify-center gap-2"
+                    >
+                      {uploadingImage ? (
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <UploadCloud size={18} />
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-2">

@@ -15,7 +15,9 @@ from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
+import os
 
 from app.core.config import settings
 from app.core.database import close_db, engine, init_db
@@ -101,3 +103,7 @@ async def health_check() -> dict:
     except Exception as e:
         logger.error("Health check failed: %s", e)
         return {"status": "error", "db": "disconnected", "detail": str(e)}
+
+# Serve uploaded static files (menu images, etc)
+os.makedirs("app/static/images", exist_ok=True)
+app.mount("/static", StaticFiles(directory="app/static"), name="static")

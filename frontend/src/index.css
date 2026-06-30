@@ -132,3 +132,21 @@ body {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-receipt, #printable-receipt * {
+    visibility: visible;
+  }
+  #printable-receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    color: black !important;
+    background: white !important;
+  }
+}
+
