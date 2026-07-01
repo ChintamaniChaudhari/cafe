@@ -60,6 +60,12 @@ export default function OrderStatus() {
   const [rating, setRating] = useState(5)
   const [feedbackComment, setFeedbackComment] = useState('')
   const [feedbackLoading, setFeedbackLoading] = useState(false)
+  // Show skeleton for the first 2.5s while WS connects if no cache exists
+  const [wsReady, setWsReady] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setWsReady(true), 2500)
+    return () => clearTimeout(t)
+  }, [])
 
   // Load initial order cache
   useEffect(() => {
@@ -147,6 +153,30 @@ export default function OrderStatus() {
   const statusInfo = STATUS_DISPLAY[currentStatus as keyof typeof STATUS_DISPLAY] || STATUS_DISPLAY.RECEIVED
   const currentIdx = STATUS_ORDER.indexOf(currentStatus)
   const StatusIcon = statusInfo.icon
+
+  if (!order && !wsReady) {
+    return (
+      <div className="min-h-screen bg-dark-950 flex flex-col items-center justify-center p-6 space-y-8">
+        <div className="w-24 h-24 rounded-2xl bg-dark-800 animate-pulse border border-white/5" />
+        <div className="space-y-3 w-full max-w-xs">
+          <div className="h-8 bg-dark-800 rounded-lg animate-pulse w-3/4 mx-auto" />
+          <div className="h-4 bg-dark-800 rounded-lg animate-pulse w-1/2 mx-auto" />
+        </div>
+        <div className="glass-card w-full max-w-sm rounded-2xl p-5 space-y-6">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="flex gap-4">
+              <div className="w-10 h-10 rounded-xl bg-dark-800 animate-pulse shrink-0" />
+              <div className="flex-1 space-y-2 py-1">
+                <div className="h-4 bg-dark-800 rounded animate-pulse w-1/3" />
+                <div className="h-3 bg-dark-800 rounded animate-pulse w-1/2" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
 
   return (
     <div className="min-h-screen pb-24 bg-dark-950 text-white relative overflow-hidden flex flex-col justify-between">

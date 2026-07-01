@@ -96,10 +96,10 @@ class OrderRepository:
         return order
 
     async def get_active_orders(self) -> list[Order]:
-        """Fetch all non-SERVED orders (for kitchen display on connect)."""
+        """Fetch all non-SERVED and non-CANCELED orders (for kitchen display on connect)."""
         stmt = (
             select(Order)
-            .where(Order.status != OrderStatus.SERVED)
+            .where(~Order.status.in_([OrderStatus.SERVED, OrderStatus.CANCELED]))
             .order_by(Order.created_at)
         )
         result = await self.db.execute(stmt)

@@ -61,7 +61,7 @@ export default function CartPage() {
 
     try {
       const items = cart.map((i) => ({
-        item_id: i.item?.id || i.item_id, // ensure fallback since earlier code used item_id directly
+        item_id: i.item?.id || i.item_id || "", // ensure fallback since earlier code used item_id directly
         quantity: i.quantity,
         notes: i.notes,
         selected_modifiers: i.selected_modifiers,
@@ -178,7 +178,7 @@ export default function CartPage() {
                           </div>
                         )}
                         <p className="text-brand-400 font-black text-sm mt-1">
-                          {currency}{((item.item?.price || item.price) + (item.selected_modifiers?.reduce((a, b) => a + b.price, 0) || 0)).toFixed(2)}
+                          {currency}{((item.item?.price || (item as any).price || 0) + (item.selected_modifiers?.reduce((a, b) => a + b.price, 0) || 0)).toFixed(2)}
                         </p>
                       </div>
                     </div>

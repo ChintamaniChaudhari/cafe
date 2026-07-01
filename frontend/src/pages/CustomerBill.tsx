@@ -40,6 +40,11 @@ export default function CustomerBill() {
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [checkoutRequested, setCheckoutRequested] = useState(false)
 
+  const sessionRaw = localStorage.getItem('cafeos_session_data')
+  const session = sessionRaw ? JSON.parse(sessionRaw) : null
+  const currency = session?.tenant?.currency || '₹'
+
+
   useEffect(() => {
     loadOrders()
   }, [])
@@ -150,7 +155,7 @@ border border-white/5 ${statusColor}`}>
                           ))}
                         </div>
                         <div className="font-mono text-gray-400">
-                          ₹{itemTotal.toFixed(2)}
+                          {currency}{itemTotal.toFixed(2)}
                         </div>
                       </div>
                     )
@@ -160,7 +165,7 @@ border border-white/5 ${statusColor}`}>
                 <div className="pt-3 border-t border-white/5 flex justify-between items-center">
                   <div className="text-xs text-gray-500 font-bold uppercase tracking-wider">Total</div>
                   <div className={`font-bold font-mono ${isCanceled ? 'line-through text-gray-600' : 'text-white'}`}>
-                    ₹{order.total_amount.toFixed(2)}
+                    {currency}{order.total_amount.toFixed(2)}
                   </div>
                 </div>
               </motion.div>
@@ -176,7 +181,7 @@ border border-white/5 ${statusColor}`}>
             <div className="flex justify-between items-end px-2">
               <div className="text-gray-400 text-sm font-bold">Grand Total</div>
               <div className="text-3xl font-black text-brand-400 font-mono">
-                ₹{grandTotal.toFixed(2)}
+                {currency}{grandTotal.toFixed(2)}
               </div>
             </div>
             

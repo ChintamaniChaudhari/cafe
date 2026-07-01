@@ -58,11 +58,12 @@ def decode_jwt_token(token: str) -> dict | None:
 # ── Session Cookie (Customer Sessions) ───────────────────────
 def set_session_cookie(response: Response, session_id: str) -> None:
     """Set the cafeos_session HTTP-only cookie on the response."""
+    is_production = settings.ENVIRONMENT == "production"
     response.set_cookie(
         key=settings.SESSION_COOKIE_NAME,
         value=session_id,
         httponly=True,
-        secure=False,  # Set True in production (HTTPS)
+        secure=is_production,  # True in production (HTTPS), False in dev
         samesite="lax",
         max_age=settings.SESSION_COOKIE_MAX_AGE,
         path="/",

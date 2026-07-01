@@ -80,7 +80,7 @@ export default function KitchenDisplay() {
 
   // Create a beep sound using Web Audio API
   const playBeep = useCallback(() => {
-    if (!soundEnabled) return
+    if (!soundEnabled || !hasInteracted) return
     try {
       const ctx = new AudioContext()
       const osc = ctx.createOscillator()
@@ -96,7 +96,7 @@ export default function KitchenDisplay() {
     } catch {
       // Audio fails silently if blocked by browser autoplay rules
     }
-  }, [soundEnabled])
+  }, [soundEnabled, hasInteracted])
 
   const handleMessage = useCallback(
     (data: unknown) => {
@@ -337,8 +337,12 @@ function OrderKdsCard({
 
   useEffect(() => {
     if (!order.created_at) return
-    const diff = Math.floor((Date.now() - new Date(order.created_at).getTime()) / 60000)
-    setTimeDiff(diff)
+    // Compute initial value immediately
+    const calc = () => Math.floor((Date.now() - new Date(order.created_at!).getTime()) / 60000)
+    setTimeDiff(calc())
+    // Refresh every 30 seconds so the display stays live
+    const interval = setInterval(() => setTimeDiff(calc()), 30000)
+    return () => clearInterval(interval)
   }, [order.created_at])
 
   const actionLabel = ACTION_LABEL[order.status]

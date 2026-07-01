@@ -234,6 +234,7 @@ export interface AdminSession {
   status: 'ACTIVE' | 'PAYMENT_PENDING' | 'CLOSED'
   opened_at: string
   total_bill: number
+  table_label: string
 }
 
 export async function fetchAdminSessions(): Promise<{ data: AdminSession[] }> {
@@ -314,5 +315,15 @@ export async function fetchAdminOrders(skip = 0, limit = 50): Promise<{ data: Ad
     headers: { 'Authorization': `Bearer ${token}` }
   })
   if (!res.ok) throw new Error(`Failed to fetch orders: ${res.status}`)
+  return res.json()
+}
+
+export async function fetchAdminSessionOrders(sessionId: string): Promise<{ data: AdminOrderHistory[] }> {
+  const token = localStorage.getItem('admin_token')
+  // Fetch up to 1000 orders to ensure we get all orders for the session
+  const res = await fetch(`${BASE}/admin/orders?session_id=${sessionId}&limit=1000`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  })
+  if (!res.ok) throw new Error(`Failed to fetch session orders: ${res.status}`)
   return res.json()
 }

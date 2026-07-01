@@ -80,7 +80,7 @@ export default function MenuPage() {
   const handleModalAddToCart = (cartItem: CartItem) => {
     const updated = addToCart(cartItem)
     setCart([...updated])
-    setAddedItemId(cartItem.item.id)
+    setAddedItemId(cartItem.item?.id || cartItem.item_id || null)
     setTimeout(() => setAddedItemId(null), 600)
   }
 
@@ -115,39 +115,38 @@ export default function MenuPage() {
     }
   }
 
+  // Shared helper: detect if an item is vegetarian based on name/description keywords
+  const isVegItem = (item: MenuItemData): boolean => {
+    const combined = (item.name + ' ' + (item.description || '')).toLowerCase()
+    return combined.includes('veg') || combined.includes('paneer') ||
+           combined.includes('salad') || combined.includes('vegan') ||
+           combined.includes('vegetarian')
+  }
+
   // Detect food characteristics dynamically for badges
   const getItemBadges = (item: MenuItemData) => {
     const name = item.name.toLowerCase()
     const desc = (item.description || '').toLowerCase()
     const badges = []
-    
+
     if (name.includes('spicy') || name.includes('chilli') || desc.includes('spicy') || desc.includes('hot')) {
       badges.push({ type: 'spicy', label: 'Spicy', icon: Flame, color: 'text-accent-rose bg-accent-rose/10 border-accent-rose/20' })
     }
-    if (name.includes('veg') || name.includes('paneer') || name.includes('salad') || desc.includes('vegan') || desc.includes('vegetarian')) {
+    if (isVegItem(item)) {
       badges.push({ type: 'veg', label: 'Veg', icon: Leaf, color: 'text-accent-emerald bg-accent-emerald/10 border-accent-emerald/20' })
     }
-    
+
     return badges
   }
 
   // Filter Categories and Items
   const filteredCategories = categories.map(cat => {
     const filteredItems = cat.items.filter(item => {
-      const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                             (item.description || '').toLowerCase().includes(searchQuery.toLowerCase())
-      
-      const isVeg = item.name.toLowerCase().includes('veg') || 
-                    item.name.toLowerCase().includes('paneer') || 
-                    item.name.toLowerCase().includes('salad') ||
-                    (item.description || '').toLowerCase().includes('vegan') ||
-                    (item.description || '').toLowerCase().includes('vegetarian')
-                    
-      const matchesVeg = !filterVeg || isVeg
-
+      const matchesVeg = !filterVeg || isVegItem(item)
       return matchesSearch && matchesVeg
     })
-    
     return { ...cat, items: filteredItems }
   }).filter(cat => cat.items.length > 0)
 

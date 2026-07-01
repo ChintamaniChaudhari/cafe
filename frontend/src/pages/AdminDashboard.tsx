@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Plus, Edit2, Package, Search, BarChart3, ClipboardList, TrendingUp } from 'lucide-react';
+import { LogOut, Plus, Edit2, Package, Search, BarChart3, ClipboardList, TrendingUp, Users, LayoutGrid, Star } from 'lucide-react';
 import { 
   fetchMenu, CategoryData, MenuItemData, 
   fetchAdminOrders, AdminOrderHistory,
   fetchAdminSessions, AdminSession, closeSession,
   fetchTables, createTable, deleteTable, DiningTable,
-  addMenuItem, editMenuItem, deleteMenuItem, apiFetch
+  addMenuItem, editMenuItem, deleteMenuItem, apiFetch,
+  fetchAdminSessionOrders
 } from '../api/client';
 import toast from 'react-hot-toast';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -28,29 +29,30 @@ export default function AdminDashboard() {
   const [newStaffUsername, setNewStaffUsername] = useState('');
   const [newStaffPassword, setNewStaffPassword] = useState('');
   const [newStaffRole, setNewStaffRole] = useState<'ADMIN'|'KITCHEN'>('KITCHEN');
+  const [menuSearch, setMenuSearch] = useState('');
   const [orders, setOrders] = useState<AdminOrderHistory[]>([]);
   const [sessions, setSessions] = useState<AdminSession[]>([]);
-  const [printSession, setPrintSession] = useState<AdminSession | null>(null);
+  const [printSession, setPrintSession] = useState<(AdminSession & { fetchedOrders: AdminOrderHistory[] }) | null>(null);
   const [tables, setTables] = useState<DiningTable[]>([]);
 
   useEffect(() => {
+    const handleAfterPrint = () => setPrintSession(null);
+    window.addEventListener('afterprint', handleAfterPrint);
+    
     if (printSession) {
       setTimeout(() => {
         window.print();
-        setPrintSession(null);
       }, 100);
     }
+    
+    return () => window.removeEventListener('afterprint', handleAfterPrint);
   }, [printSession]);
   const [newTableLabel, setNewTableLabel] = useState('');
-  // @ts-ignore
   const [ordersPage, setOrdersPage] = useState(0);
-  // @ts-ignore
-  const [totalOrders, setTotalOrders] = useState(0);
   const ORDERS_PER_PAGE = 20;
-  
+
   const [loading, setLoading] = useState(true);
-  // @ts-ignore
-  const [ordersLoading, setOrdersLoading] = useState(false);
+
   
   // Modal States
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -108,15 +110,11 @@ export default function AdminDashboard() {
   };
 
   const loadOrders = async () => {
-    setOrdersLoading(true);
     try {
       const ordersRes = await fetchAdminOrders(ordersPage * ORDERS_PER_PAGE, ORDERS_PER_PAGE);
       setOrders(ordersRes.data);
-      setTotalOrders(ordersRes.total);
     } catch (error) {
       console.error('Error loading orders:', error);
-    } finally {
-      setOrdersLoading(false);
     }
   };
 
@@ -216,10 +214,20 @@ export default function AdminDashboard() {
     if (!window.confirm("Mark this session as PAID and close it?")) return;
     try {
       await closeSession(sessionId);
-      await loadSessions();
-      await loadData();
-    } catch (e) {
+      toast.success('Session marked as paid and closed.');
+      loadSessions();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to close session.');
+    }
+  };
+
+  const handlePrintBill = async (session: AdminSession) => {
+    try {
+      const res = await fetchAdminSessionOrders(session.id);
+      setPrintSession({ ...session, fetchedOrders: res.data });
+    } catch (e: any) {
       console.error(e);
+      toast.error('Failed to load bill details.');
     }
   };
 
@@ -258,15 +266,19 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-dark-950 text-white font-sans selection:bg-brand-500/30">
       {/* Printable Receipt */}
       {printSession && (
-        <div className="hidden print:block fixed inset-0 bg-white text-black p-8 z-[9999] font-mono">
+        <div id="printable-receipt" className="hidden print:block fixed inset-0 bg-white text-black p-8 z-[9999] font-mono">
           <div className="max-w-xs mx-auto border-2 border-black p-6">
             <h1 className="text-2xl font-black mb-1 text-center">CAFE OS</h1>
             <p className="text-center text-xs mb-6 pb-4 border-b border-black border-dashed">Official Receipt</p>
-            
+
             <div className="text-xs mb-4">
               <div className="flex justify-between mb-1">
                 <span>Date:</span>
                 <span>{new Date().toLocaleDateString()}</span>
+              </div>
+              <div className="flex justify-between mb-1">
+                <span>Table:</span>
+                <span className="font-black">{printSession.table_label || '—'}</span>
               </div>
               <div className="flex justify-between mb-1">
                 <span>Session:</span>
@@ -274,15 +286,31 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <div className="border-b border-black border-dashed my-4"></div>
-            
+            <div className="border-b border-black border-dashed my-3" />
+
+            {/* Line items from orders matching this session */}
+            <div className="text-xs space-y-1 mb-3">
+              {printSession.fetchedOrders
+                .filter(o => o.status !== 'CANCELED')
+                .flatMap(o => o.items)
+                .map((item, idx) => (
+                  <div key={idx} className="flex justify-between">
+                    <span>{item.quantity}x {item.name}</span>
+                    <span>₹{((item.unit_price || 0) * item.quantity).toFixed(2)}</span>
+                  </div>
+                ))
+              }
+            </div>
+
+            <div className="border-b border-black border-dashed my-3" />
+
             <div className="flex justify-between items-end mb-6">
               <span className="font-bold">TOTAL AMOUNT</span>
               <span className="text-xl font-black">₹{printSession.total_bill.toFixed(2)}</span>
             </div>
 
-            <div className="border-b border-black border-dashed my-4"></div>
-            
+            <div className="border-b border-black border-dashed my-4" />
+
             <p className="text-center text-xs font-bold mt-4">THANK YOU!</p>
             <p className="text-center text-[10px] mt-1">Please come again</p>
           </div>
@@ -317,9 +345,9 @@ export default function AdminDashboard() {
                 {tab === 'MENU' && <Package size={16} />}
                 {tab === 'ORDERS' && <ClipboardList size={16} />}
                 {tab === 'SESSIONS' && <TrendingUp size={16} />}
-                {tab === 'TABLES' && <Package size={16} />}
-                {tab === 'STAFF' && <Package size={16} />}
-                {tab === 'FEEDBACK' && <TrendingUp size={16} />}
+                {tab === 'TABLES' && <LayoutGrid size={16} />}
+                {tab === 'STAFF' && <Users size={16} />}
+                {tab === 'FEEDBACK' && <Star size={16} />}
                 {tab === 'ANALYTICS' && <BarChart3 size={16} />}
                 {tab}
               </button>
@@ -349,9 +377,11 @@ export default function AdminDashboard() {
               <div className="flex gap-4 mb-6">
                 <div className="relative flex-1 max-w-md">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
-                  <input 
-                    type="text" 
-                    placeholder="Search menu items..." 
+                  <input
+                    type="text"
+                    placeholder="Search menu items..."
+                    value={menuSearch}
+                    onChange={(e) => setMenuSearch(e.target.value)}
                     className="w-full bg-dark-900 border border-white/5 rounded-xl py-3 pl-10 pr-4 text-white focus:outline-none focus:border-brand-500/50"
                   />
                 </div>
@@ -365,17 +395,25 @@ export default function AdminDashboard() {
               </div>
 
               <div className="space-y-8">
-                {categories.map((category) => (
+                {categories.map((category) => {
+                  const filteredItems = menuSearch
+                    ? category.items.filter(item =>
+                        item.name.toLowerCase().includes(menuSearch.toLowerCase()) ||
+                        (item.description || '').toLowerCase().includes(menuSearch.toLowerCase())
+                      )
+                    : category.items;
+                  if (filteredItems.length === 0) return null;
+                  return (
                   <div key={category.id}>
                     <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
                       {category.name}
                       <span className="text-xs bg-dark-800 text-gray-400 px-2 py-1 rounded-full">
-                        {category.items.length} items
+                        {filteredItems.length} items
                       </span>
                     </h2>
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                      {category.items.map((item) => (
+                      {filteredItems.map((item) => (
                         <div key={item.id} className="glass-card p-4 rounded-2xl border border-white/5 flex flex-col group transition-all hover:border-brand-500/30">
                           <div className="flex justify-between items-start mb-2">
                             <h3 className="font-bold text-white text-lg">{item.name}</h3>
@@ -407,7 +445,8 @@ export default function AdminDashboard() {
                       ))}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </motion.div>
           )}
@@ -418,41 +457,61 @@ export default function AdminDashboard() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="glass-card rounded-2xl overflow-hidden border border-white/5"
+              className="space-y-4"
             >
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-dark-900/50 text-xs uppercase font-bold text-gray-400 border-b border-white/5">
-                    <tr>
-                      <th className="px-6 py-4">Order #</th>
-                      <th className="px-6 py-4">Date</th>
-                      <th className="px-6 py-4">Status</th>
-                      <th className="px-6 py-4">Items</th>
-                      <th className="px-6 py-4">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {orders.map((order) => (
-                      <tr key={order.id} className="hover:bg-white/[0.02] transition-colors">
-                        <td className="px-6 py-4 font-bold text-white">#{order.order_number}</td>
-                        <td className="px-6 py-4 text-gray-400">{new Date(order.created_at).toLocaleString()}</td>
-                        <td className="px-6 py-4">
-                          <span className={`px-2.5 py-1 text-[10px] font-black tracking-wider uppercase rounded-full border ${
-                            order.status === 'CANCELED' ? 'bg-accent-rose/10 text-accent-rose border-accent-rose/20' :
-                            order.status === 'SERVED' ? 'bg-accent-violet/10 text-accent-violet border-accent-violet/20' :
-                            'bg-accent-blue/10 text-accent-blue border-accent-blue/20'
-                          }`}>
-                            {order.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-gray-400">
-                          {order.items.map(i => `${i.quantity}x ${i.name}`).join(', ')}
-                        </td>
-                        <td className="px-6 py-4 font-black text-brand-400">₹{order.total_amount.toFixed(2)}</td>
+              <div className="glass-card rounded-2xl overflow-hidden border border-white/5">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-dark-900/50 text-xs uppercase font-bold text-gray-400 border-b border-white/5">
+                      <tr>
+                        <th className="px-6 py-4">Order #</th>
+                        <th className="px-6 py-4">Date</th>
+                        <th className="px-6 py-4">Status</th>
+                        <th className="px-6 py-4">Items</th>
+                        <th className="px-6 py-4">Total</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {orders.map((order) => (
+                        <tr key={order.id} className="hover:bg-white/[0.02] transition-colors">
+                          <td className="px-6 py-4 font-bold text-white">#{order.order_number}</td>
+                          <td className="px-6 py-4 text-gray-400">{new Date(order.created_at).toLocaleString()}</td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2.5 py-1 text-[10px] font-black tracking-wider uppercase rounded-full border ${
+                              order.status === 'CANCELED' ? 'bg-accent-rose/10 text-accent-rose border-accent-rose/20' :
+                              order.status === 'SERVED' ? 'bg-accent-violet/10 text-accent-violet border-accent-violet/20' :
+                              'bg-accent-blue/10 text-accent-blue border-accent-blue/20'
+                            }`}>
+                              {order.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-gray-400">
+                            {order.items.map(i => `${i.quantity}x ${i.name}`).join(', ')}
+                          </td>
+                          <td className="px-6 py-4 font-black text-brand-400">₹{order.total_amount.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              {/* Pagination Controls */}
+              <div className="flex items-center justify-between px-2">
+                <button
+                  onClick={() => setOrdersPage(p => Math.max(0, p - 1))}
+                  disabled={ordersPage === 0}
+                  className="px-4 py-2 bg-dark-800 hover:bg-dark-700 text-sm font-bold text-white rounded-xl border border-white/5 disabled:opacity-40 transition-colors"
+                >
+                  ← Previous
+                </button>
+                <span className="text-xs text-gray-500 font-bold">Page {ordersPage + 1}</span>
+                <button
+                  onClick={() => setOrdersPage(p => p + 1)}
+                  disabled={orders.length < ORDERS_PER_PAGE}
+                  className="px-4 py-2 bg-dark-800 hover:bg-dark-700 text-sm font-bold text-white rounded-xl border border-white/5 disabled:opacity-40 transition-colors"
+                >
+                  Next →
+                </button>
               </div>
             </motion.div>
           )}
@@ -469,21 +528,35 @@ export default function AdminDashboard() {
                 <table className="w-full text-left text-sm">
                   <thead className="bg-dark-900/50 text-xs uppercase font-bold text-gray-400 border-b border-white/5">
                     <tr>
-                      <th className="px-6 py-4">Session ID</th>
+                      <th className="px-6 py-4">Table</th>
                       <th className="px-6 py-4">Status</th>
+                      <th className="px-6 py-4">Opened</th>
+                      <th className="px-6 py-4 text-right">Bill</th>
                       <th className="px-6 py-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
                     {sessions.map((session) => (
-                      <tr key={session.id}>
-                        <td className="px-6 py-4">{session.id}</td>
-                        <td className="px-6 py-4">{session.status}</td>
+                      <tr key={session.id} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="px-6 py-4">
+                          <span className="font-black text-white text-base">{session.table_label || '—'}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`px-2.5 py-1 text-[10px] font-black tracking-wider uppercase rounded-full border ${
+                            session.status === 'PAYMENT_PENDING'
+                              ? 'bg-accent-amber/10 text-accent-amber border-accent-amber/20'
+                              : 'bg-accent-emerald/10 text-accent-emerald border-accent-emerald/20'
+                          }`}>
+                            {session.status === 'PAYMENT_PENDING' ? 'Bill Requested' : 'Active'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-gray-400 text-xs">{new Date(session.opened_at).toLocaleTimeString()}</td>
+                        <td className="px-6 py-4 font-black text-brand-400 text-right">₹{session.total_bill.toFixed(2)}</td>
                         <td className="px-6 py-4 text-right flex justify-end gap-3">
                           {session.status !== 'CLOSED' && (
-                            <button onClick={() => handleCloseSession(session.id)} className="text-brand-400 font-bold hover:text-brand-300">Mark Paid</button>
+                            <button onClick={() => handleCloseSession(session.id)} className="text-brand-400 font-bold hover:text-brand-300 text-xs">Mark Paid</button>
                           )}
-                          <button onClick={() => setPrintSession(session)} className="text-gray-400 font-bold hover:text-white">Print</button>
+                          <button onClick={() => handlePrintBill(session)} className="text-gray-400 font-bold hover:text-white text-xs">Print</button>
                         </td>
                       </tr>
                     ))}
@@ -590,7 +663,7 @@ export default function AdminDashboard() {
               exit={{ opacity: 0, y: -10 }}
               className="space-y-6"
             >
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div className="glass-card p-6 rounded-2xl border border-white/5 relative overflow-hidden">
                   <div className="absolute top-0 right-0 p-6 opacity-10">
                     <TrendingUp size={64} className="text-brand-500" />
@@ -613,6 +686,14 @@ export default function AdminDashboard() {
                   </div>
                   <h3 className="text-gray-400 text-sm font-bold uppercase tracking-wider mb-2">Active Kitchen Orders</h3>
                   <div className="text-4xl font-black text-white">{analytics.active_orders}</div>
+                </div>
+
+                <div className="glass-card p-6 rounded-2xl border border-white/5 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-6 opacity-10">
+                    <BarChart3 size={64} className="text-accent-emerald" />
+                  </div>
+                  <h3 className="text-gray-400 text-sm font-bold uppercase tracking-wider mb-2">Avg Order Value</h3>
+                  <div className="text-4xl font-black text-white">₹{(analytics.average_order_value || 0).toFixed(2)}</div>
                 </div>
               </div>
 

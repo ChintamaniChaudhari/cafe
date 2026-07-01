@@ -10,3 +10,4 @@ httptools
 websockets>=12.0
 email-validator>=2.0.0
 python-multipart
+slowapi>=0.1.9

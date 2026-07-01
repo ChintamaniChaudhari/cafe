@@ -1,5 +1,6 @@
 """Admin router — MVP endpoints for managing the menu."""
 
+import re
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
@@ -33,20 +34,24 @@ async def upload_image(
     current_user: User = Depends(get_current_user),
 ) -> dict:
     """Upload an image to the static directory."""
+    MAX_SIZE = 5 * 1024 * 1024  # 5 MB
+
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image.")
 
+    content = await file.read()
+    if len(content) > MAX_SIZE:
+        raise HTTPException(status_code=413, detail="Image must be smaller than 5 MB.")
+
     # Sanitize the filename to prevent directory traversal attacks
     safe_filename = os.path.basename(file.filename) if file.filename else "upload.bin"
-    # Ensure it only has safe characters
-    import re
     safe_filename = re.sub(r'[^a-zA-Z0-9_\-\.]', '_', safe_filename)
-    
+
     filename = f"{uuid.uuid4()}_{safe_filename}"
     filepath = os.path.join("app/static/images", filename)
 
     with open(filepath, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        buffer.write(content)
 
     return {"url": f"/static/images/{filename}"}
 
@@ -72,11 +77,15 @@ async def create_category(
 @router.post("/items", status_code=status.HTTP_201_CREATED)
 async def create_item(
     body: MenuItemCreate,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Create a new menu item."""
-    # Verify category exists
-    stmt = select(MenuCategory).where(MenuCategory.id == body.category_id)
+    # Verify category exists AND belongs to current user's tenant
+    stmt = select(MenuCategory).where(
+        MenuCategory.id == body.category_id,
+        MenuCategory.tenant_id == current_user.tenant_id
+    )
     result = await db.execute(stmt)
     if not result.scalar_one_or_none():
         raise HTTPException(
@@ -167,10 +176,22 @@ async def close_session(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Session not found.",
         )
-    
+
+    # Guard: block closing if any orders are still being prepared or ready
+    active_orders_stmt = select(Order.id).where(
+        Order.session_id == session_id,
+        Order.status.in_(["RECEIVED", "PREPARING", "READY"])
+    ).limit(1)
+    active_orders_res = await db.execute(active_orders_stmt)
+    if active_orders_res.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot close session: orders are still being prepared.",
+        )
+
     session.status = SessionStatus.CLOSED
     session.closed_at = datetime.now(timezone.utc)
-    
+
     db.add(session)
     await db.commit()
     return {"status": "success"}
@@ -221,13 +242,25 @@ async def delete_table(
     stmt = select(DiningTable).where(DiningTable.id == table_id)
     result = await db.execute(stmt)
     table = result.scalar_one_or_none()
-    
+
     if not table:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Table not found.",
         )
-        
+
+    # Guard: block deletion if any active session references this table
+    active_session_stmt = select(DiningSession.id).where(
+        DiningSession.table_id == table_id,
+        DiningSession.status.in_([SessionStatus.ACTIVE, SessionStatus.PAYMENT_PENDING])
+    ).limit(1)
+    active_session_res = await db.execute(active_session_stmt)
+    if active_session_res.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot delete table: it has an active session.",
+        )
+
     await db.delete(table)
     await db.commit()
     return {"status": "success"}
@@ -236,27 +269,30 @@ async def delete_table(
 @router.get("/sessions")
 async def get_active_sessions(db: AsyncSession = Depends(get_db)) -> dict:
     """Get all active and payment pending sessions with their total bill."""
-    # We join orders to calculate total bill per session
+    # Join DiningTable to get table label, join orders for total bill
     stmt = (
         select(
             DiningSession,
+            DiningTable.label.label("table_label"),
             func.sum(Order.total_amount).label("total_bill")
         )
+        .join(DiningTable, DiningSession.table_id == DiningTable.id)
         .outerjoin(Order, (Order.session_id == DiningSession.id) & (Order.status != 'CANCELED'))
         .where(DiningSession.status.in_([SessionStatus.ACTIVE, SessionStatus.PAYMENT_PENDING]))
-        .group_by(DiningSession.id)
+        .group_by(DiningSession.id, DiningTable.label)
         .order_by(desc(DiningSession.opened_at))
     )
     result = await db.execute(stmt)
     rows = result.all()
-    
+
     data = []
-    for session, total_bill in rows:
+    for session, table_label, total_bill in rows:
         data.append({
             "id": str(session.id),
             "status": session.status,
             "opened_at": session.opened_at.isoformat(),
-            "total_bill": float(total_bill or 0.0)
+            "total_bill": float(total_bill or 0.0),
+            "table_label": table_label or "Unknown",
         })
 
     return {"status": "success", "data": data}
@@ -267,10 +303,12 @@ async def get_analytics(db: AsyncSession = Depends(get_db)) -> dict:
     """Get high-level analytics for the admin dashboard."""
     from datetime import datetime, timedelta, timezone
     
-    # Total Revenue (sum of total_amount for SERVED orders)
-    revenue_stmt = select(func.sum(Order.total_amount)).where(Order.status == 'SERVED')
+    # Total Revenue (sum of total_amount for SERVED and READY orders)
+    revenue_stmt = select(func.sum(Order.total_amount)).where(
+        Order.status.in_(['SERVED', 'READY'])
+    )
     revenue_res = await db.execute(revenue_stmt)
-    total_revenue = revenue_res.scalar() or 0.0
+    total_revenue = float(revenue_res.scalar() or 0.0)
 
     # Total Orders (exclude canceled)
     total_orders_stmt = select(func.count(Order.id)).where(Order.status != 'CANCELED')
@@ -306,7 +344,7 @@ async def get_analytics(db: AsyncSession = Depends(get_db)) -> dict:
             func.date(Order.created_at).label('day'),
             func.sum(Order.total_amount).label('daily_total')
         )
-        .where(Order.status == 'SERVED', Order.created_at >= seven_days_ago)
+        .where(Order.status.in_(['SERVED', 'READY']), Order.created_at >= seven_days_ago)
         .group_by(func.date(Order.created_at))
         .order_by(func.date(Order.created_at))
     )
@@ -323,12 +361,15 @@ async def get_analytics(db: AsyncSession = Depends(get_db)) -> dict:
             "revenue": float(revenue_by_day.get(date_str, 0.0))
         })
 
+    aov = round(total_revenue / total_orders, 2) if total_orders > 0 else 0.0
+
     return {
         "status": "success",
         "data": {
             "total_revenue": float(total_revenue),
             "total_orders": total_orders,
             "active_orders": active_orders,
+            "average_order_value": aov,
             "popular_items": popular_items,
             "daily_revenue": daily_revenue
         }
@@ -345,7 +386,8 @@ async def get_staff(
     result = await db.execute(stmt)
     staff = result.scalars().all()
     data = [
-        {"id": str(u.id), "username": u.email, "role": u.role}
+        # Use u.name as the canonical username (email is a mock internal field)
+        {"id": str(u.id), "username": u.name, "role": u.role}
         for u in staff
     ]
     return {"status": "success", "data": data}
@@ -380,7 +422,7 @@ async def create_staff(
 
     return {
         "status": "success",
-        "data": {"id": str(new_user.id), "username": new_user.username, "role": new_user.role}
+        "data": {"id": str(new_user.id), "username": new_user.name, "role": new_user.role}
     }
 
 
@@ -449,21 +491,25 @@ async def get_feedback(
 async def get_orders(
     skip: int = 0,
     limit: int = 50,
+    session_id: uuid.UUID | None = None,
     db: AsyncSession = Depends(get_db)
 ) -> dict:
     """Get all orders with their items for the admin history view."""
     
     # First get total count
     count_stmt = select(func.count(Order.id))
+    if session_id:
+        count_stmt = count_stmt.where(Order.session_id == session_id)
+        
     count_res = await db.execute(count_stmt)
     total_count = count_res.scalar() or 0
 
-    stmt = (
-        select(Order)
-        .order_by(desc(Order.created_at))
-        .offset(skip)
-        .limit(limit)
-    )
+    stmt = select(Order).order_by(desc(Order.created_at))
+    if session_id:
+        stmt = stmt.where(Order.session_id == session_id)
+        
+    stmt = stmt.offset(skip).limit(limit)
+    
     result = await db.execute(stmt)
     orders = result.scalars().all()
     

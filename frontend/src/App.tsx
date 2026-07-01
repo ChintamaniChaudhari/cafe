@@ -1,5 +1,4 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
-import { AnimatePresence } from 'framer-motion'
 import ScanLanding from './pages/ScanLanding'
 import MenuPage from './pages/MenuPage'
 import CartPage from './pages/CartPage'
@@ -15,7 +14,6 @@ function AnimatedApp() {
   const location = useLocation()
   
   return (
-    <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         <Route path="/s/:shortcode" element={<ScanLanding />} />
         <Route path="/menu" element={<MenuPage />} />
@@ -46,7 +44,6 @@ function AnimatedApp() {
         } />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
-    </AnimatePresence>
   )
 }
 

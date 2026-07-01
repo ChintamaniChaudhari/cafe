@@ -65,6 +65,20 @@ class OrderService:
         3. Create Order + OrderItems.
         4. Publish ORDER_CREATED event for KDS broadcast.
         """
+        from app.models.dining_session import DiningSession, SessionStatus
+        from sqlalchemy import select
+        
+        # 0. Check session status
+        stmt = select(DiningSession).where(DiningSession.id == session_id)
+        res = await self.db.execute(stmt)
+        session = res.scalar_one_or_none()
+        
+        if not session or session.status != SessionStatus.ACTIVE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot place order. Session is not active."
+            )
+
         # 1. Snapshot prices and validate items
         items_with_prices = []
         subtotal = 0.0

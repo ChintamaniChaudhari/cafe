@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "CafeOS"
     APP_VERSION: str = "1.0.0-MVP"
     DEBUG: bool = True
+    ENVIRONMENT: str = "development"  # Set to "production" in prod env
 
 
 # Singleton instance

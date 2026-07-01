@@ -6,6 +6,8 @@
  * No POST /cart endpoint exists (Cookie Rule).
  */
 
+import type { MenuItemData } from '../api/client'
+
 export interface CartItem {
   cart_id?: string
   item_id?: string
@@ -14,7 +16,7 @@ export interface CartItem {
   quantity: number
   notes?: string
   image_url?: string | null
-  item?: any // Full item reference
+  item?: MenuItemData // Full item reference — typed strictly, no any
   selected_modifiers?: { name: string, price: number }[]
 }
 
